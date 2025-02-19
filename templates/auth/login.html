@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Literary Community{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2>Login</h2>
+    <form id="login-form" class="form">
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+    </form>
+
+    <div class="google-signin">
+        <h3>Or sign in with:</h3>
+        <div id="g_id_onload"
+             data-client_id="{{ config['GOOGLE_CLIENT_ID'] }}"
+             data-callback="handleGoogleSignIn">
+        </div>
+        <div class="g_id_signin" data-type="standard"></div>
+    </div>
+
+    <p>Don't have an account? <a href="{{ url_for('auth.register') }}">Register here</a></p>
+</div>
+{% endblock %}

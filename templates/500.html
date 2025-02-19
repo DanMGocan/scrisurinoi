@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Internal Server Error - Literary Community{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <h1>500 - Internal Server Error</h1>
+    <p>Something went wrong on our end. Please try again later.</p>
+    <div class="error-actions">
+        <a href="{{ url_for('index') }}" class="btn btn-primary">Go to Homepage</a>
+        <button onclick="window.location.reload()" class="btn">Try Again</button>
+    </div>
+</div>
+{% endblock %}

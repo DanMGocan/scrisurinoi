@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}{{ post.title }} - Literary Community{% endblock %}
+
+{% block content %}
+<div class="post-detail">
+    <div class="post-card">
+        <h2 class="post-title">{{ post.title }}</h2>
+        <div class="post-meta">
+            <span>By {{ post.author.name }}</span>
+            <span>{{ post.created_at.strftime('%B %d, %Y') }}</span>
+            <span class="post-type-badge">{{ post.post_type|title }}</span>
+        </div>
+        <div class="post-content">
+            {% if post.post_type == 'poetry' %}
+                <pre>{{ post.content }}</pre>
+            {% else %}
+                {{ post.content|nl2br }}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="comment-section">
+        <h3>Comments</h3>
+        
+        {% if current_user.is_authenticated %}
+        <form id="comment-form" class="form" data-post-id="{{ post.id }}">
+            <div class="form-group">
+                <label for="content">Add a comment</label>
+                <textarea id="content" name="content" class="form-control" rows="3" required></textarea>
+                <small class="form-text text-muted">
+                    Your comment will be evaluated by AI for quality and relevance.
+                    High-quality comments earn you points!
+                </small>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit Comment</button>
+        </form>
+        {% else %}
+        <p class="login-prompt">
+            Please <a href="{{ url_for('auth.login') }}">login</a> to leave a comment.
+        </p>
+        {% endif %}
+
+        <div class="comments-list">
+            {% for comment in post.comments|sort(attribute='created_at', reverse=true) %}
+            <div class="comment">
+                <div class="comment-meta">
+                    <span class="comment-author">{{ comment.author.name }}</span>
+                    <span class="comment-date">{{ comment.created_at.strftime('%B %d, %Y %H:%M') }}</span>
+                </div>
+                <div class="comment-content">
+                    {{ comment.content }}
+                </div>
+                {% if comment.ai_score %}
+                <div class="ai-feedback">
+                    <div class="score">
+                        Quality Score: {{ "%.1f"|format(comment.ai_score) }}/100
+                    </div>
+                    {% if comment.ai_feedback %}
+                    <div class="feedback">
+                        AI Feedback: {{ comment.ai_feedback }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="no-comments">No comments yet. Be the first to comment!</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Custom filter to convert newlines to <br> tags for story content
+function nl2br(text) {
+    return text.replace(/\n/g, '<br>');
+}
+</script>
+{% endblock %}

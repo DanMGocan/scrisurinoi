@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - Literary Community{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <div class="profile-card">
+        <h2>{{ current_user.name }}'s Profile</h2>
+        <div class="profile-stats">
+            <div class="points-badge">
+                {{ current_user.points }} Points
+            </div>
+            <div class="stats-details">
+                <p>Member since: {{ current_user.created_at.strftime('%B %d, %Y') }}</p>
+                <p>Total Posts: {{ current_user.posts|length }}</p>
+                <p>Total Comments: {{ current_user.comments|length }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="user-content">
+        <h3>Your Posts</h3>
+        {% for post in current_user.posts|sort(attribute='created_at', reverse=true) %}
+        <div class="post-card">
+            <h4 class="post-title">{{ post.title }}</h4>
+            <div class="post-meta">
+                <span>{{ post.created_at.strftime('%B %d, %Y') }}</span>
+                <span class="post-type-badge">{{ post.post_type|title }}</span>
+                <span>{{ post.comments|length }} comments</span>
+            </div>
+            <div class="post-preview">
+                {{ post.content[:200] }}{% if post.content|length > 200 %}...{% endif %}
+            </div>
+            <div class="post-footer">
+                <a href="{{ url_for('main.view_post', post_id=post.id) }}" class="btn btn-primary">View Post</a>
+            </div>
+        </div>
+        {% else %}
+        <p class="no-posts">You haven't created any posts yet. <a href="{{ url_for('main.create_post') }}">Create your first post!</a></p>
+        {% endfor %}
+
+        <h3>Your Comments</h3>
+        {% for comment in current_user.comments|sort(attribute='created_at', reverse=true) %}
+        <div class="comment">
+            <div class="comment-meta">
+                <span>On: <a href="{{ url_for('main.view_post', post_id=comment.post.id) }}">{{ comment.post.title }}</a></span>
+                <span>{{ comment.created_at.strftime('%B %d, %Y %H:%M') }}</span>
+            </div>
+            <div class="comment-content">
+                {{ comment.content }}
+            </div>
+            {% if comment.ai_score %}
+            <div class="ai-feedback">
+                <div class="score">
+                    Quality Score: {{ "%.1f"|format(comment.ai_score) }}/100
+                </div>
+                {% if comment.ai_feedback %}
+                <div class="feedback">
+                    AI Feedback: {{ comment.ai_feedback }}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="no-comments">You haven't made any comments yet. Start engaging with the community!</p>
+        {% endfor %}
+    </div>
+
+    <div class="profile-update-form">
+        <h3>Update Profile</h3>
+        <form id="profile-form" class="form">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" class="form-control" value="{{ current_user.name }}" required>
+            </div>
+            <div class="form-group">
+                <label for="favorite_quote">Favorite Quote</label>
+                <input type="text" id="favorite_quote" name="favorite_quote" class="form-control" value="{{ current_user.favorite_quote }}">
+            </div>
+            <button type="submit" class="btn btn-primary">Update Profile</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('profile-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const formData = {
+        name: document.getElementById('name').value,
+        favorite_quote: document.getElementById('favorite_quote').value
+    };
+
+    try {
+        const response = await fetch('/api/auth/profile', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showAlert('Profile updated successfully');
+            location.reload();
+        } else {
+            showAlert(data.error, 'error');
+        }
+    } catch (error) {
+        showAlert('An error occurred during profile update', 'error');
+    }
+});
+</script>
+{% endblock %}

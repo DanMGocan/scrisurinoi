@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Create Post - Literary Community{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2>Create New Post</h2>
+    <form id="post-form" class="form">
+        <div class="form-group">
+            <label for="title">Title</label>
+            <input type="text" id="title" name="title" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="post_type">Type</label>
+            <select id="post_type" name="post_type" class="form-control" required>
+                <option value="">Select type...</option>
+                <option value="poetry">Poetry</option>
+                <option value="story">Story</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="content">Content</label>
+            <textarea id="content" name="content" class="form-control" rows="10" required></textarea>
+            <small class="form-text text-muted">
+                For poetry, each line will be preserved exactly as written.
+                For stories, paragraphs will be properly formatted.
+            </small>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Publish</button>
+        <a href="{{ url_for('main.index') }}" class="btn">Cancel</a>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('post_type').addEventListener('change', function() {
+    const textarea = document.getElementById('content');
+    if (this.value === 'poetry') {
+        textarea.style.whiteSpace = 'pre';
+        textarea.style.fontFamily = 'monospace';
+    } else {
+        textarea.style.whiteSpace = 'normal';
+        textarea.style.fontFamily = 'inherit';
+    }
+});
+</script>
+{% endblock %}
