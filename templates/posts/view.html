@@ -1,71 +1,138 @@
 {% extends "base.html" %}
 
-{% block title %}{{ post.title }} - Literary Community{% endblock %}
+{% block title %}{{ post.title }} - Comunitatea Literară{% endblock %}
 
 {% block content %}
 <div class="post-detail">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary back-link">
+        <i class="fas fa-arrow-left"></i> Înapoi la toate postările
+    </a>
+    
     <div class="post-card">
         <h2 class="post-title">{{ post.title }}</h2>
         <div class="post-meta">
-            <span>By {{ post.author.name }}</span>
-            <span>{{ post.created_at.strftime('%B %d, %Y') }}</span>
-            <span class="post-type-badge">{{ post.post_type|title }}</span>
+            <span><i class="fas fa-user"></i> {{ post.author.name }}</span>
+            <span><i class="far fa-calendar-alt"></i> {{ post.created_at.strftime('%d.%m.%Y') }}</span>
+            <span class="post-type-badge">
+                {% if post.post_type == 'poetry' %}
+                    <i class="fas fa-feather"></i> Poezie
+                {% elif post.post_type == 'story' %}
+                    <i class="fas fa-book"></i> Proză
+                {% elif post.post_type == 'essay' %}
+                    <i class="fas fa-pen-nib"></i> Eseu
+                {% elif post.post_type == 'theater' %}
+                    <i class="fas fa-theater-masks"></i> Teatru
+                {% elif post.post_type == 'letter' %}
+                    <i class="fas fa-envelope-open-text"></i> Scrisoare
+                {% elif post.post_type == 'journal' %}
+                    <i class="fas fa-book-open"></i> Filă de Jurnal
+                {% else %}
+                    {{ post.post_type|title }}
+                {% endif %}
+            </span>
         </div>
+        
+        {% if post.description %}
+        <div class="post-description">
+            <p><strong>{{ post.description }}</strong></p>
+        </div>
+        {% endif %}
+        
         <div class="post-content">
             {% if post.post_type == 'poetry' %}
-                <pre>{{ post.content }}</pre>
+                <pre class="poetry-content">{{ post.content }}</pre>
+            {% elif post.post_type == 'theater' %}
+                <pre class="theater-content">{{ post.content }}</pre>
+            {% elif post.post_type == 'letter' %}
+                <div class="letter-content">{{ post.content|nl2br }}</div>
+            {% elif post.post_type == 'journal' %}
+                <div class="journal-content">{{ post.content|nl2br }}</div>
             {% else %}
-                {{ post.content|nl2br }}
+                <div class="prose-content">{{ post.content|nl2br }}</div>
             {% endif %}
+        </div>
+        
+        <div class="post-actions">
+            <button class="btn btn-like" id="like-post" data-post-id="{{ post.id }}">
+                <i class="fas fa-heart"></i> <span id="post-like-count">{{ post.likes|length }}</span> Aprecieri
+            </button>
         </div>
     </div>
 
     <div class="comment-section">
-        <h3>Comments</h3>
+        <h3><i class="far fa-comments"></i> Comentarii</h3>
         
         {% if current_user.is_authenticated %}
         <form id="comment-form" class="form" data-post-id="{{ post.id }}">
             <div class="form-group">
-                <label for="content">Add a comment</label>
-                <textarea id="content" name="content" class="form-control" rows="3" required></textarea>
+                <label for="content">Adaugă un comentariu</label>
+                <textarea id="content" name="content" class="form-control" rows="3" required placeholder="Împărtășește-ți gândurile despre această 
+                    {% if post.post_type == 'poetry' %}poezie
+                    {% elif post.post_type == 'story' %}poveste
+                    {% elif post.post_type == 'essay' %}eseu
+                    {% elif post.post_type == 'theater' %}piesă de teatru
+                    {% elif post.post_type == 'letter' %}scrisoare
+                    {% elif post.post_type == 'journal' %}filă de jurnal
+                    {% else %}operă
+                    {% endif %}..."></textarea>
                 <small class="form-text text-muted">
-                    Your comment will be evaluated by AI for quality and relevance.
-                    High-quality comments earn you points!
+                    <i class="fas fa-robot"></i> Comentariul tău va fi evaluat de AI pentru calitate și relevanță.
+                    <i class="fas fa-award"></i> Comentariile de calitate îți aduc puncte!
                 </small>
             </div>
-            <button type="submit" class="btn btn-primary">Submit Comment</button>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i> Trimite Comentariu
+            </button>
         </form>
         {% else %}
-        <p class="login-prompt">
-            Please <a href="{{ url_for('auth.login') }}">login</a> to leave a comment.
-        </p>
+        <div class="login-prompt">
+            <i class="fas fa-lock"></i>
+            Te rugăm să te <a href="{{ url_for('auth.login') }}">autentifici</a> pentru a lăsa un comentariu.
+        </div>
         {% endif %}
 
         <div class="comments-list">
             {% for comment in post.comments|sort(attribute='created_at', reverse=true) %}
-            <div class="comment">
+            <div class="comment" id="comment-{{ comment.id }}">
                 <div class="comment-meta">
-                    <span class="comment-author">{{ comment.author.name }}</span>
-                    <span class="comment-date">{{ comment.created_at.strftime('%B %d, %Y %H:%M') }}</span>
+                    <span class="comment-author"><i class="fas fa-user-circle"></i> {{ comment.author.name }}</span>
+                    <span class="comment-date"><i class="far fa-clock"></i> {{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
                 </div>
                 <div class="comment-content">
                     {{ comment.content }}
                 </div>
-                {% if comment.ai_score %}
-                <div class="ai-feedback">
-                    <div class="score">
-                        Quality Score: {{ "%.1f"|format(comment.ai_score) }}/100
-                    </div>
-                    {% if comment.ai_feedback %}
-                    <div class="feedback">
-                        AI Feedback: {{ comment.ai_feedback }}
-                    </div>
+                <div class="comment-actions">
+                    <button class="btn btn-sm btn-like like-comment" data-comment-id="{{ comment.id }}">
+                        <i class="fas fa-heart"></i> <span class="comment-like-count">{{ comment.likes|length }}</span> Aprecieri
+                    </button>
+                    {% if current_user.is_authenticated and comment.author.id == current_user.id %}
+                    <button class="btn btn-sm btn-danger delete-comment" data-comment-id="{{ comment.id }}">
+                        <i class="fas fa-trash"></i> Șterge
+                    </button>
                     {% endif %}
                 </div>
+                <div class="ai-feedback">
+                {% if comment.ai_score == 0 %}
+                    <div class="warning">
+                        Acest comentariu a fost marcat ca spam sau a fost copiat un comentariu anterior
+                    </div>
+                {% else %}
+                    <div class="score">
+                        Scor de Calitate: {{ "%.1f"|format(comment.ai_score) }}/100
+                    </div>
+                    {% if comment.ai_feedback %}
+                        <div class="feedback">
+                            <i class="fas fa-comment-dots"></i> Feedback AI: {{ comment.ai_feedback }}
+                        </div>
+                    {% endif %}
                 {% endif %}
+                </div>
             </div>
             {% else %}
-            <p class="no-comments">No comments yet. Be the first to comment!</p>
+            <div class="no-comments">
+                <i class="far fa-comment-dots fa-3x"></i>
+                <p>Încă nu există comentarii. Fii primul care comentează!</p>
+            </div>
             {% endfor %}
         </div>
     </div>
@@ -78,5 +145,119 @@
 function nl2br(text) {
     return text.replace(/\n/g, '<br>');
 }
+
+// Like and delete functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Post like button
+    const likePostBtn = document.getElementById('like-post');
+    if (likePostBtn) {
+        likePostBtn.addEventListener('click', async function() {
+            const postId = this.getAttribute('data-post-id');
+            try {
+                const response = await fetch(`/api/posts/${postId}/like`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Update like count
+                    document.getElementById('post-like-count').textContent = data.like_count;
+                    
+                    // Toggle active class for visual feedback
+                    this.classList.toggle('active');
+                } else {
+                    console.error('Error liking post:', data.error);
+                }
+            } catch (error) {
+                console.error('Error liking post:', error);
+            }
+        });
+    }
+    
+    // Comment like buttons
+    const likeCommentBtns = document.querySelectorAll('.like-comment');
+    likeCommentBtns.forEach(button => {
+        button.addEventListener('click', async function() {
+            const commentId = this.getAttribute('data-comment-id');
+            try {
+                const response = await fetch(`/api/comments/${commentId}/like`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Update like count
+                    this.querySelector('.comment-like-count').textContent = data.like_count;
+                    
+                    // Toggle active class for visual feedback
+                    this.classList.toggle('active');
+                } else {
+                    console.error('Error liking comment:', data.error);
+                }
+            } catch (error) {
+                console.error('Error liking comment:', error);
+            }
+        });
+    });
+    
+    // Comment delete buttons
+    const deleteCommentBtns = document.querySelectorAll('.delete-comment');
+    deleteCommentBtns.forEach(button => {
+        button.addEventListener('click', async function() {
+            if (!confirm('Ești sigur că vrei să ștergi acest comentariu? Punctele primite pentru acest comentariu vor fi retrase.')) {
+                return;
+            }
+            
+            const commentId = this.getAttribute('data-comment-id');
+            try {
+                const response = await fetch(`/api/comments/${commentId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Show success message
+                    alert(`Comentariu șters cu succes! ${data.points_removed > 0 ? data.points_removed + ' puncte au fost retrase.' : ''}`);
+                    
+                    // Remove the comment from the DOM
+                    const commentElement = document.getElementById(`comment-${commentId}`);
+                    if (commentElement) {
+                        commentElement.remove();
+                    }
+                    
+                    // If there are no more comments, show the "no comments" message
+                    const commentsList = document.querySelector('.comments-list');
+                    if (commentsList && commentsList.children.length === 0) {
+                        const noCommentsDiv = document.createElement('div');
+                        noCommentsDiv.className = 'no-comments';
+                        noCommentsDiv.innerHTML = `
+                            <i class="far fa-comment-dots fa-3x"></i>
+                            <p>Încă nu există comentarii. Fii primul care comentează!</p>
+                        `;
+                        commentsList.appendChild(noCommentsDiv);
+                    }
+                } else {
+                    alert(data.error || 'A apărut o eroare la ștergerea comentariului');
+                    console.error('Error deleting comment:', data.error);
+                }
+            } catch (error) {
+                alert('A apărut o eroare la ștergerea comentariului');
+                console.error('Error deleting comment:', error);
+            }
+        });
+    });
+});
 </script>
 {% endblock %}

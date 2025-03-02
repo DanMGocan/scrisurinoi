@@ -32,18 +32,18 @@
                 {{ post.content[:200] }}{% if post.content|length > 200 %}...{% endif %}
             </div>
             <div class="post-footer">
-                <a href="{{ url_for('main.view_post', post_id=post.id) }}" class="btn btn-primary">View Post</a>
+                <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-primary">View Post</a>
             </div>
         </div>
         {% else %}
-        <p class="no-posts">You haven't created any posts yet. <a href="{{ url_for('main.create_post') }}">Create your first post!</a></p>
+        <p class="no-posts">You haven't created any posts yet. <a href="{{ url_for('create_post') }}">Create your first post!</a></p>
         {% endfor %}
 
         <h3>Your Comments</h3>
         {% for comment in current_user.comments|sort(attribute='created_at', reverse=true) %}
         <div class="comment">
             <div class="comment-meta">
-                <span>On: <a href="{{ url_for('main.view_post', post_id=comment.post.id) }}">{{ comment.post.title }}</a></span>
+                <span>On: <a href="{{ url_for('view_post', post_id=comment.post.id) }}">{{ comment.post.title }}</a></span>
                 <span>{{ comment.created_at.strftime('%B %d, %Y %H:%M') }}</span>
             </div>
             <div class="comment-content">

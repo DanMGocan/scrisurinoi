@@ -1,36 +1,60 @@
 {% extends "base.html" %}
 
-{% block title %}Create Post - Literary Community{% endblock %}
+{% block title %}Creează Postare - Comunitatea Literară{% endblock %}
 
 {% block content %}
 <div class="form-container">
-    <h2>Create New Post</h2>
-    <form id="post-form" class="form">
+    <h2><i class="fas fa-pen-fancy"></i> Creează o Postare Nouă</h2>
+    <p class="form-intro">Împărtășește opera ta literară cu comunitatea. Postările de calitate îți pot aduce recunoaștere și implicare.</p>
+    
+    <form id="post-form" class="form" method="POST" action="/api/posts">
         <div class="form-group">
-            <label for="title">Title</label>
-            <input type="text" id="title" name="title" class="form-control" required>
+            <label for="title"><i class="fas fa-heading"></i> Titlu</label>
+            <input type="text" id="title" name="title" class="form-control" required placeholder="Oferă operei tale un titlu semnificativ">
         </div>
         
         <div class="form-group">
-            <label for="post_type">Type</label>
-            <select id="post_type" name="post_type" class="form-control" required>
-                <option value="">Select type...</option>
-                <option value="poetry">Poetry</option>
-                <option value="story">Story</option>
-            </select>
-        </div>
-        
-        <div class="form-group">
-            <label for="content">Content</label>
-            <textarea id="content" name="content" class="form-control" rows="10" required></textarea>
+            <label for="description"><i class="fas fa-align-left"></i> Descriere</label>
+            <textarea id="description" name="description" class="form-control" rows="2" placeholder="O scurtă descriere a operei tale (maxim 500 caractere)"></textarea>
             <small class="form-text text-muted">
-                For poetry, each line will be preserved exactly as written.
-                For stories, paragraphs will be properly formatted.
+                <i class="fas fa-info-circle"></i> Descrierea va fi afișată pe pagina principală și va ajuta cititorii să înțeleagă despre ce este opera ta.
             </small>
         </div>
         
-        <button type="submit" class="btn btn-primary">Publish</button>
-        <a href="{{ url_for('main.index') }}" class="btn">Cancel</a>
+        <div class="form-group">
+            <label for="post_type"><i class="fas fa-tag"></i> Tip</label>
+            <select id="post_type" name="post_type" class="form-control" required>
+                <option value="">Selectează tipul...</option>
+                <option value="poetry">Poezie</option>
+                <option value="story">Proză</option>
+                <option value="essay">Eseu</option>
+                <option value="theater">Teatru</option>
+                <option value="letter">Scrisoare</option>
+                <option value="journal">Filă de Jurnal</option>
+            </select>
+            <small class="form-text text-muted">
+                <i class="fas fa-info-circle"></i> Alege formatul care reprezintă cel mai bine opera ta.
+            </small>
+        </div>
+        
+        <div class="form-group">
+            <label for="content"><i class="fas fa-edit"></i> Conținut</label>
+            <textarea id="content" name="content" class="form-control" rows="12" required placeholder="Scrie capodopera ta literară aici..."></textarea>
+            <small class="form-text text-muted">
+                <i class="fas fa-feather"></i> Pentru poezie, fiecare linie va fi păstrată exact așa cum este scrisă.
+                <br>
+                <i class="fas fa-paragraph"></i> Pentru proză, paragrafele vor fi formatate corespunzător.
+            </small>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i> Publică
+            </button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Anulează
+            </a>
+        </div>
     </form>
 </div>
 
@@ -40,12 +64,49 @@
 <script>
 document.getElementById('post_type').addEventListener('change', function() {
     const textarea = document.getElementById('content');
-    if (this.value === 'poetry') {
-        textarea.style.whiteSpace = 'pre';
-        textarea.style.fontFamily = 'monospace';
-    } else {
-        textarea.style.whiteSpace = 'normal';
-        textarea.style.fontFamily = 'inherit';
+    const contentLabel = document.querySelector('label[for="content"]');
+    
+    // Reset to default
+    textarea.style.whiteSpace = 'normal';
+    textarea.style.fontFamily = 'inherit';
+    
+    // Set specific styles and placeholders based on post type
+    switch(this.value) {
+        case 'poetry':
+            textarea.style.whiteSpace = 'pre';
+            textarea.style.fontFamily = 'Playfair Display, serif';
+            textarea.placeholder = 'Scrie poezia ta aici...\nFiecare linie va fi păstrată\nExact așa cum o scrii';
+            contentLabel.innerHTML = '<i class="fas fa-feather"></i> Poezie';
+            break;
+        case 'story':
+            textarea.style.fontFamily = 'Roboto, sans-serif';
+            textarea.placeholder = 'Scrie povestea ta aici. Paragrafele vor fi formatate corespunzător.';
+            contentLabel.innerHTML = '<i class="fas fa-book"></i> Proză';
+            break;
+        case 'essay':
+            textarea.style.fontFamily = 'Roboto, sans-serif';
+            textarea.placeholder = 'Scrie eseul tău aici. Structurează-l cu introducere, cuprins și concluzie.';
+            contentLabel.innerHTML = '<i class="fas fa-pen-nib"></i> Eseu';
+            break;
+        case 'theater':
+            textarea.style.whiteSpace = 'pre';
+            textarea.style.fontFamily = 'Courier New, monospace';
+            textarea.placeholder = 'PERSONAJ 1: Replică\n\nPERSONAJ 2: Replică\n\n(Indicație scenică)';
+            contentLabel.innerHTML = '<i class="fas fa-theater-masks"></i> Teatru';
+            break;
+        case 'letter':
+            textarea.style.fontFamily = 'Playfair Display, serif';
+            textarea.placeholder = 'Dragă ...,\n\nScrie scrisoarea ta aici.\n\nCu drag,\nNumele tău';
+            contentLabel.innerHTML = '<i class="fas fa-envelope-open-text"></i> Scrisoare';
+            break;
+        case 'journal':
+            textarea.style.fontFamily = 'Playfair Display, serif';
+            textarea.placeholder = 'Astăzi...\n\nScrie gândurile, experiențele și reflecțiile tale aici.';
+            contentLabel.innerHTML = '<i class="fas fa-book-open"></i> Filă de Jurnal';
+            break;
+        default:
+            textarea.placeholder = 'Scrie capodopera ta literară aici...';
+            contentLabel.innerHTML = '<i class="fas fa-edit"></i> Conținut';
     }
 });
 </script>

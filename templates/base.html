@@ -1,44 +1,101 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ro">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Literary Community{% endblock %}</title>
+    <title>{% block title %}Scrisuri Noi{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <nav class="navbar">
+    <header class="site-header">
         <div class="container">
-            <a href="{{ url_for('main.index') }}" class="navbar-brand">Literary Community</a>
-            <ul class="nav-links">
-                {% if current_user.is_authenticated %}
-                    <li><a href="{{ url_for('main.create_post') }}">New Post</a></li>
-                    <li><a href="{{ url_for('main.profile') }}">Profile ({{ current_user.points }} points)</a></li>
-                    <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
-                {% else %}
-                    <li><a href="{{ url_for('auth.login') }}">Login</a></li>
-                    <li><a href="{{ url_for('auth.register') }}">Register</a></li>
-                {% endif %}
-            </ul>
-        </div>
-    </nav>
-
-    <div class="container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        {{ message }}
+            <nav class="navbar">
+                <a href="{{ url_for('index') }}" class="navbar-brand">
+                    <div class="brand-main">
+                        <i class="fas fa-book-open"></i> Scrisuri Noi
                     </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+                    <span class="navbar-subtitle">Scriem, inspirăm, creștem împreună.</span>
+                </a>
+                <button class="mobile-menu-toggle" aria-label="Comutare meniu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <ul class="nav-links">
+                    {% if current_user.is_authenticated %}
+                    <li><a href="{{ url_for('create_post') }}" class="nav-link"><i class="fas fa-pen"></i> Postare Nouă</a></li>
+                    <li><a href="{{ url_for('profile') }}" class="nav-link"><i class="fas fa-user"></i> Profil <span class="points-badge">{{ current_user.points }} pct</span></a></li>
+                    <li><a href="{{ url_for('auth.logout') }}" class="nav-link"><i class="fas fa-sign-out-alt"></i> Deconectare</a></li>
+                    {% else %}
+                    <li><a href="{{ url_for('auth.login') }}" class="nav-link"><i class="fas fa-sign-in-alt"></i> Autentificare</a></li>
+                    <li><a href="{{ url_for('register_page') }}" class="nav-link btn btn-primary btn-sm"><i class="fas fa-user-plus"></i> Înregistrare</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
 
-        {% block content %}{% endblock %}
-    </div>
+    <main class="site-content">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            <i class="fas fa-info-circle"></i> {{ message }}
+                            <button class="alert-close" aria-label="Închide">&times;</button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <p>&copy; <span id="current-year"></span> Scrisuri Noi. O platformă pentru literatura română.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Set current year in footer
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+    </script>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Mobile menu toggle
+        document.querySelector('.mobile-menu-toggle').addEventListener('click', function() {
+            document.querySelector('.nav-links').classList.toggle('active');
+            this.classList.toggle('active');
+        });
+        
+        // Convert flash messages to modals
+        document.addEventListener('DOMContentLoaded', function() {
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        showModal('{{ message }}', '{{ category }}');
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            // Remove the original flash messages from DOM
+            const flashMessages = document.querySelectorAll('.alert');
+            flashMessages.forEach(message => message.remove());
+            
+            // Show LinkedIn/CV notice modal on landing page
+            {% if request.path == '/' %}
+                showModal('If you are here from my LinkedIn or my CV, please note this project is still work in progress. "Scrisuri Noi" is a community for Romanian literature writers that encourages feedback and interaction and is a place for people to both teach and learn about their writing. Built with Flask.', 'info');
+            {% endif %}
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

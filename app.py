@@ -15,6 +15,7 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID')
     app.config['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
+    app.config['ANTHROPIC_API_KEY'] = os.getenv('ANTHROPIC_API_KEY')
     
     # Initialize extensions
     db.init_app(app)
@@ -49,6 +50,8 @@ def create_app():
     @app.route('/posts/<int:post_id>')
     def view_post(post_id):
         post = Post.query.get_or_404(post_id)
+        if post is None:
+            return render_template('404.html'), 404
         return render_template('posts/view.html', post=post)
 
     @app.route('/profile')
@@ -64,6 +67,15 @@ def create_app():
     def internal_error(error):
         db.session.rollback()
         return render_template('500.html'), 500
+    @app.route('/register')
+    def register_page():
+        return render_template('auth/register.html')
+    
+    # Custom filter
+    def nl2br(s):
+        return s.replace('\n', '<br>')
+
+    app.jinja_env.filters['nl2br'] = nl2br
     
     return app
 

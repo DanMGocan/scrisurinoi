@@ -1,24 +1,31 @@
 {% extends "base.html" %}
 
-{% block title %}Login - Literary Community{% endblock %}
+{% block title %}Autentificare - Scrisuri Noi{% endblock %}
 
 {% block content %}
 <div class="form-container">
-    <h2>Login</h2>
+    <h2><i class="fas fa-sign-in-alt"></i> Autentificare</h2>
+    <p class="form-intro">Bine ai revenit la Scrisuri Noi. Autentifică-te pentru a-ți continua călătoria literară.</p>
+    
     <form id="login-form" class="form">
         <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" class="form-control" required>
+            <label for="email"><i class="fas fa-envelope"></i> Email</label>
+            <input type="email" id="email" name="email" class="form-control" required placeholder="exemplu@email.com">
         </div>
         <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" class="form-control" required>
+            <label for="password"><i class="fas fa-lock"></i> Parolă</label>
+            <input type="password" id="password" name="password" class="form-control" required placeholder="Parola ta">
         </div>
-        <button type="submit" class="btn btn-primary">Login</button>
+        <button type="submit" class="btn btn-primary btn-block">
+            <i class="fas fa-sign-in-alt"></i> Autentificare
+        </button>
     </form>
 
+    <div class="auth-divider">
+        <span>sau</span>
+    </div>
+
     <div class="google-signin">
-        <h3>Or sign in with:</h3>
         <div id="g_id_onload"
              data-client_id="{{ config['GOOGLE_CLIENT_ID'] }}"
              data-callback="handleGoogleSignIn">
@@ -26,6 +33,90 @@
         <div class="g_id_signin" data-type="standard"></div>
     </div>
 
-    <p>Don't have an account? <a href="{{ url_for('auth.register') }}">Register here</a></p>
+    <div class="auth-footer">
+        <p>Nu ai un cont? <a href="{{ url_for('auth.register') }}">Înregistrează-te aici</a></p>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Utility function to show alerts (copied from main.js)
+function showAlert(message, type = 'success') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+        ${message}
+        <button class="alert-close" aria-label="Close">&times;</button>
+    `;
+    
+    // Insert at the top of the container
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Add event listener to close button
+    alertDiv.querySelector('.alert-close').addEventListener('click', function() {
+        alertDiv.remove();
+    });
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle login form submission
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value
+            };
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Autentificare reușită!');
+                    window.location.href = '/';
+                } else {
+                    showAlert(data.error || 'Autentificare eșuată. Verificați email-ul și parola.', 'error');
+                }
+            } catch (error) {
+                console.error('Error during login:', error);
+                showAlert('A apărut o eroare la autentificare', 'error');
+            }
+        });
+    }
+    
+    // Add animation to form elements
+    const formElements = document.querySelectorAll('.form-group, .btn, .auth-divider, .google-signin');
+    formElements.forEach((element, index) => {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(20px)';
+        element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        element.style.transitionDelay = `${index * 0.1}s`;
+        
+        setTimeout(() => {
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, 100);
+    });
+});
+</script>
 {% endblock %}

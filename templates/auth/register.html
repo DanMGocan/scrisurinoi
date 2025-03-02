@@ -1,34 +1,45 @@
 {% extends "base.html" %}
 
-{% block title %}Register - Literary Community{% endblock %}
+{% block title %}Înregistrare - Scrisuri Noi{% endblock %}
 
 {% block content %}
 <div class="form-container">
-    <h2>Register</h2>
+    <h2><i class="fas fa-user-plus"></i> Creează Cont</h2>
+    <p class="form-intro">Alătură-te comunității Scrisuri Noi pentru a-ți împărtăși operele, a interacționa cu alții și a explora literatura română.</p>
+    
     <form id="register-form" class="form">
         <div class="form-group">
-            <label for="name">Full Name</label>
-            <input type="text" id="name" name="name" class="form-control" required>
-        </div>
-         <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" class="form-control" required>
+            <label for="name"><i class="fas fa-user"></i> Nume pe site</label>
+            <input type="text" id="name" name="name" class="form-control" required placeholder="Numele tău de utilizator">
         </div>
         <div class="form-group">
-            <label for="password">Password</label>
+            <label for="email"><i class="fas fa-envelope"></i> Email</label>
+            <input type="email" id="email" name="email" class="form-control" required placeholder="exemplu@email.com">
+        </div>
+        <div class="form-group">
+            <label for="password"><i class="fas fa-lock"></i> Parolă</label>
             <input type="password" id="password" name="password" class="form-control" required 
                    minlength="8" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
-                   title="Must contain at least one number and one uppercase and lowercase letter, and at least 8 or more characters">
+                   title="Trebuie să conțină cel puțin un număr, o literă mare și o literă mică, și cel puțin 8 caractere"
+                   placeholder="Creează o parolă puternică">
+            <small class="form-text text-muted">
+                <i class="fas fa-info-circle"></i> Parola trebuie să aibă cel puțin 8 caractere și să includă litere mari, litere mici și cifre.
+            </small>
         </div>
         <div class="form-group">
-            <label for="confirm-password">Confirm Password</label>
-            <input type="password" id="confirm-password" name="confirm-password" class="form-control" required>
+            <label for="confirm-password"><i class="fas fa-check-circle"></i> Confirmă Parola</label>
+            <input type="password" id="confirm-password" name="confirm-password" class="form-control" required placeholder="Confirmă parola ta">
         </div>
-        <button type="submit" class="btn btn-primary">Register</button>
+        <button type="submit" class="btn btn-primary btn-block">
+            <i class="fas fa-user-plus"></i> Creează Cont
+        </button>
     </form>
 
+    <div class="auth-divider">
+        <span>sau</span>
+    </div>
+
     <div class="google-signin">
-        <h3>Or register with:</h3>
         <div id="g_id_onload"
              data-client_id="{{ config['GOOGLE_CLIENT_ID'] }}"
              data-callback="handleGoogleSignIn">
@@ -36,50 +47,132 @@
         <div class="g_id_signin" data-type="standard"></div>
     </div>
 
-    <p>Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a></p>
+    <div class="auth-footer">
+        <p>Ai deja un cont? <a href="{{ url_for('auth.login') }}">Autentifică-te aici</a></p>
+    </div>
 </div>
 
 {% endblock %}
 
 {% block scripts %}
 <script>
-document.getElementById('register-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
+// Utility function to show alerts (copied from main.js)
+function showAlert(message, type = 'success') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+        ${message}
+        <button class="alert-close" aria-label="Close">&times;</button>
+    `;
     
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirm-password').value;
+    // Insert at the top of the container
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
     
-    if (password !== confirmPassword) {
-        showAlert('Passwords do not match', 'error');
-        return;
-    }
+    // Add event listener to close button
+    alertDiv.querySelector('.alert-close').addEventListener('click', function() {
+        alertDiv.remove();
+    });
     
-    const formData = {
-        name: document.getElementById('name').value,
-        email: document.getElementById('email').value,
-        password: password
-    };
-    
-    try {
-        const response = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            showAlert('Registration successful! Please login.');
-            window.location.href = '/login';
-        } else {
-            showAlert(data.error, 'error');
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
         }
-    } catch (error) {
-        showAlert('An error occurred during registration', 'error');
-    }
+    }, 5000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Add animation to form elements
+    const formElements = document.querySelectorAll('.form-group, .btn, .auth-divider, .google-signin');
+    formElements.forEach((element, index) => {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(20px)';
+        element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        element.style.transitionDelay = `${index * 0.1}s`;
+        
+        setTimeout(() => {
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, 100);
+    });
+    
+    // Password strength indicator
+    const passwordInput = document.getElementById('password');
+    const strengthIndicator = document.createElement('div');
+    strengthIndicator.className = 'password-strength';
+    passwordInput.parentNode.insertBefore(strengthIndicator, passwordInput.nextSibling);
+    
+    passwordInput.addEventListener('input', function() {
+        const password = this.value;
+        let strength = 0;
+        
+        if (password.length >= 8) strength += 1;
+        if (password.match(/[A-Z]/)) strength += 1;
+        if (password.match(/[a-z]/)) strength += 1;
+        if (password.match(/[0-9]/)) strength += 1;
+        if (password.match(/[^A-Za-z0-9]/)) strength += 1;
+        
+        strengthIndicator.className = 'password-strength';
+        if (strength === 0) {
+            strengthIndicator.textContent = '';
+            strengthIndicator.classList.add('empty');
+        } else if (strength <= 2) {
+            strengthIndicator.textContent = 'Slabă';
+            strengthIndicator.classList.add('weak');
+        } else if (strength <= 4) {
+            strengthIndicator.textContent = 'Medie';
+            strengthIndicator.classList.add('medium');
+        } else {
+            strengthIndicator.textContent = 'Puternică';
+            strengthIndicator.classList.add('strong');
+        }
+    });
 });
+
+// Handle registration form submission
+const registerForm = document.getElementById('register-form');
+if (registerForm) {
+    registerForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        
+        if (password !== confirmPassword) {
+            showAlert('Parolele nu se potrivesc', 'error');
+            return;
+        }
+        
+        const formData = {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            password: password
+        };
+        
+        try {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showAlert('Înregistrare reușită! Te rugăm să te autentifici.');
+                window.location.href = '/api/auth/login';
+            } else {
+                showAlert(data.error || 'A apărut o eroare la înregistrare', 'error');
+            }
+        } catch (error) {
+            console.error('Error during registration:', error);
+            showAlert('A apărut o eroare la înregistrare', 'error');
+        }
+    });
+}
 </script>
 {% endblock %}

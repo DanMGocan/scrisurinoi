@@ -1,10 +1,13 @@
-from flask import Blueprint, request, jsonify, current_app, url_for
+from flask import Blueprint, request, jsonify, current_app, url_for, render_template, redirect, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from google.oauth2 import id_token
 from google.auth.transport import requests
-from models import db, User
+from models import db, User, UserActivity
 from http import HTTPStatus
+from config import Config
+from datetime import datetime, timedelta
+import logging
 
 auth = Blueprint('auth', __name__)
 login_manager = LoginManager()
@@ -17,6 +20,14 @@ def load_user(user_id):
 def register():
     data = request.get_json()
     
+    # Validate required fields
+    if not all(k in data for k in ['email', 'password', 'name']):
+        return jsonify({'error': 'Missing required fields'}), HTTPStatus.BAD_REQUEST
+    
+    # Validate password complexity
+    if len(data['password']) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters long'}), HTTPStatus.BAD_REQUEST
+    
     if User.query.filter_by(email=data['email']).first():
         return jsonify({'error': 'Email already registered'}), HTTPStatus.BAD_REQUEST
     
@@ -26,10 +37,13 @@ def register():
         password_hash=generate_password_hash(data['password'])
     )
 
-    db.session.add(user)
-    db.session.commit()
-    
-    return jsonify({'message': 'User registered successfully'}), HTTPStatus.CREATED
+    try:
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({'message': 'User registered successfully'}), HTTPStatus.CREATED
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Registration failed'}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 @auth.route('/login', methods=['POST'])
 def login():
@@ -38,9 +52,41 @@ def login():
     
     if user and check_password_hash(user.password_hash, data['password']):
         login_user(user)
+        
+        # Award daily login points if not already awarded today
+        today = datetime.utcnow().date()
+        activity = UserActivity.query.filter_by(user_id=user.id, login_date=today).first()
+        
+        if not activity:
+            # First login of the day
+            activity = UserActivity(user_id=user.id, login_date=today, points_awarded=True)
+            user.points += Config.DAILY_LOGIN_REWARD
+            db.session.add(activity)
+            
+            # Calculate days since last login to award membership points
+            yesterday = today - timedelta(days=1)
+            last_activity = UserActivity.query.filter_by(user_id=user.id).filter(
+                UserActivity.login_date < today
+            ).order_by(UserActivity.login_date.desc()).first()
+            
+            if last_activity and last_activity.login_date == yesterday:
+                # Consecutive login - award membership points for the day
+                user.points += Config.DAILY_MEMBERSHIP_REWARD
+            
+            db.session.commit()
+            
+            return jsonify({
+                'message': 'Logged in successfully',
+                'points_awarded': Config.DAILY_LOGIN_REWARD
+            })
+        
         return jsonify({'message': 'Logged in successfully'})
     
     return jsonify({'error': 'Invalid credentials'}), HTTPStatus.UNAUTHORIZED
+
+@auth.route('/login', methods=['GET'])
+def login_page():
+    return render_template('auth/login.html')
 
 @auth.route('/google/login', methods=['POST'])
 def google_login():
@@ -65,6 +111,34 @@ def google_login():
             db.session.commit()
         
         login_user(user)
+        
+        # Award daily login points if not already awarded today
+        today = datetime.utcnow().date()
+        activity = UserActivity.query.filter_by(user_id=user.id, login_date=today).first()
+        
+        if not activity:
+            # First login of the day
+            activity = UserActivity(user_id=user.id, login_date=today, points_awarded=True)
+            user.points += Config.DAILY_LOGIN_REWARD
+            db.session.add(activity)
+            
+            # Calculate days since last login to award membership points
+            yesterday = today - timedelta(days=1)
+            last_activity = UserActivity.query.filter_by(user_id=user.id).filter(
+                UserActivity.login_date < today
+            ).order_by(UserActivity.login_date.desc()).first()
+            
+            if last_activity and last_activity.login_date == yesterday:
+                # Consecutive login - award membership points for the day
+                user.points += Config.DAILY_MEMBERSHIP_REWARD
+            
+            db.session.commit()
+            
+            return jsonify({
+                'message': 'Logged in successfully',
+                'points_awarded': Config.DAILY_LOGIN_REWARD
+            })
+        
         return jsonify({'message': 'Logged in successfully'})
     
     except Exception as e:
@@ -74,7 +148,8 @@ def google_login():
 @login_required
 def logout():
     logout_user()
-    return jsonify({'message': 'Logged out successfully'})
+    flash('Ai fost deconectat cu succes!', 'success')
+    return redirect(url_for('index'))
 
 @auth.route('/profile')
 @login_required
