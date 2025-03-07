@@ -11,7 +11,26 @@ def create_app():
     
     # Configuration
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///literary_app.db'
+    
+    # Database configuration - detect environment
+    if os.environ.get('GAE_ENV', '').startswith('standard') or os.environ.get('K_SERVICE'):
+        # Running on Google Cloud (App Engine or Cloud Run)
+        # Use Cloud SQL with PostgreSQL
+        db_user = os.environ.get('DB_USER')
+        db_pass = os.environ.get('DB_PASS')
+        db_name = os.environ.get('DB_NAME')
+        db_socket_dir = os.environ.get('DB_SOCKET_DIR', '/cloudsql')
+        cloud_sql_connection_name = os.environ.get('CLOUD_SQL_CONNECTION_NAME')
+        
+        # If using Cloud SQL with PostgreSQL
+        app.config['SQLALCHEMY_DATABASE_URI'] = (
+            f'postgresql+psycopg2://{db_user}:{db_pass}@/{db_name}'
+            f'?host={db_socket_dir}/{cloud_sql_connection_name}'
+        )
+    else:
+        # Local development - use SQLite
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///literary_app.db'
+    
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID')
     app.config['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')

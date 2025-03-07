@@ -71,10 +71,11 @@ Comments are evaluated by AI and scored from 0-100 based on:
 ## Installation and Setup
 
 ### Prerequisites
-- Python 3.8+
+- Python 3.10+
 - pip (Python package manager)
+- Git
 
-### Installation Steps
+### Local Development Setup
 
 1. Clone the repository:
    ```
@@ -94,11 +95,10 @@ Comments are evaluated by AI and scored from 0-100 based on:
    ```
 
 4. Set up environment variables:
-   Create a `.env` file in the project root with the following variables:
+   Copy the example environment file and update it with your values:
    ```
-   SECRET_KEY=your_secret_key
-   OPENAI_API_KEY=your_openai_api_key
-   GOOGLE_CLIENT_ID=your_google_client_id
+   cp .env.example .env
+   # Edit .env with your actual values
    ```
 
 5. Initialize the database:
@@ -108,14 +108,39 @@ Comments are evaluated by AI and scored from 0-100 based on:
 
 6. Run the application:
    ```
-   python app.py
-   ```
-   or use the startup script:
-   ```
-   ./startup.sh
+   python run_local.py
    ```
 
 7. Access the application at `http://localhost:5000`
+
+## Deployment to Google Cloud
+
+This application can be deployed to Google Cloud Platform using either App Engine or Cloud Run. For detailed deployment instructions, see the [Google Cloud Deployment Guide](gcp_deployment_guide.md).
+
+### Quick Deployment Steps
+
+1. Install the Google Cloud SDK
+2. Create a new Google Cloud project
+3. Enable required APIs (Cloud Run, Cloud Build, Secret Manager, etc.)
+4. Set up a Cloud SQL PostgreSQL database
+5. Store secrets in Secret Manager
+6. Deploy using one of the following methods:
+
+#### App Engine Deployment
+```bash
+gcloud app deploy app.yaml
+```
+
+#### Cloud Run Deployment
+```bash
+# Build the container
+gcloud builds submit --tag gcr.io/[PROJECT_ID]/literary-app
+
+# Deploy to Cloud Run
+gcloud run deploy literary-app --image gcr.io/[PROJECT_ID]/literary-app
+```
+
+For complete deployment instructions with all required parameters, refer to the [Google Cloud Deployment Guide](gcp_deployment_guide.md).
 
 ## Project Structure
 

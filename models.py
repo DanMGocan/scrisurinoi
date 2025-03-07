@@ -69,6 +69,7 @@ class Comment(db.Model):
     comment_length = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     ai_score = db.Column(db.Integer, nullable=True)
+    ai_feedback = db.Column(db.Text, nullable=True)  # Store AI reasoning/feedback
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete='CASCADE'), nullable=False)
     likes = db.relationship('Like', backref='comment', lazy=True)

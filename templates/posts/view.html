@@ -95,7 +95,10 @@
             {% for comment in post.comments|sort(attribute='created_at', reverse=true) %}
             <div class="comment" id="comment-{{ comment.id }}">
                 <div class="comment-meta">
-                    <span class="comment-author"><i class="fas fa-user-circle"></i> {{ comment.author.name }}</span>
+                    <span class="comment-author">
+                        <img src="{{ comment.author.profile_picture }}" alt="{{ comment.author.name }}" class="profile-pic">
+                        {{ comment.author.name }}
+                    </span>
                     <span class="comment-date"><i class="far fa-clock"></i> {{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
                 </div>
                 <div class="comment-content">

@@ -3,98 +3,108 @@ from flask_login import login_required, current_user
 from models import db, Post, Comment, Like
 from http import HTTPStatus
 from config import Config
-from openai import OpenAI
-from anthropic import Anthropic
 import logging
 import os
 import re
 import json
+from openai import OpenAI
 
 posts = Blueprint('posts', __name__)
+
+def validate_post_data(data):
+    """Validate post creation data."""
+    if not all(k in data for k in ['title', 'content', 'post_type']):
+        raise ValueError('Missing required fields')
+        
+    if data['post_type'] not in ['poetry', 'story', 'essay', 'theater', 'letter', 'journal']:
+        raise ValueError('Invalid post type')
+
+def calculate_post_cost(post_type, content):
+    """Calculate the cost of creating a post."""
+    word_count = len(content.split())
+    cost = Config.POST_COSTS.get(post_type, 5)  # Default to 5 if category not found
+    
+    if word_count > Config.POST_WORD_LIMIT:
+        additional_cost = (word_count // Config.POST_WORD_LIMIT) * Config.POST_WORD_COST_MULTIPLIER
+        cost += additional_cost
+        
+    return cost
+
+def handle_response(message, status_code, **kwargs):
+    """Handle unified JSON/form responses."""
+    if request.is_json:
+        response = {'message': message, **kwargs}
+        if status_code >= HTTPStatus.BAD_REQUEST:
+            response['error'] = message
+        return jsonify(response), status_code
+    else:
+        flash(message, 'success' if status_code == HTTPStatus.CREATED else 'error')
+        return redirect(url_for('posts.create_post'))
 
 @posts.route('/posts', methods=['POST'])
 @login_required
 def create_post():
-    # Handle both JSON and form data
-    if request.is_json:
-        data = request.get_json()
-    else:
-        data = request.form
-    
-    if not all(k in data for k in ['title', 'content', 'post_type']):
-        if request.is_json:
-            return jsonify({'error': 'Missing required fields'}), HTTPStatus.BAD_REQUEST
-        else:
-            flash('Lipsesc câmpuri obligatorii', 'error')
-            return redirect(url_for('create_post'))
-        
-    if data['post_type'] not in ['poetry', 'story', 'essay', 'theater', 'letter', 'journal']:
-        return jsonify({'error': 'Invalid post type'}), HTTPStatus.BAD_REQUEST
-    
-    post = Post(
-        title=data['title'],
-        description=data.get('description', ''),
-        content=data['content'],
-        post_length=len(data['content']),
-        post_type=data['post_type'],
-        user_id=current_user.id
-    )
-
-    # Calculate post cost based on category
-    post_type = data['post_type']
-    word_count = len(data['content'].split())
-    
-    # Base cost from the category
-    cost = Config.POST_COSTS.get(post_type, 5)  # Default to 5 if category not found
-    
-    # Additional cost for exceeding word limit
-    if word_count > Config.POST_WORD_LIMIT:
-        additional_cost = (word_count // Config.POST_WORD_LIMIT) * Config.POST_WORD_COST_MULTIPLIER
-        cost += additional_cost
-
-    if current_user.points < cost:
-        if request.is_json:
-            return jsonify({'error': 'Insufficient points'}), HTTPStatus.BAD_REQUEST
-        else:
-            flash(f'Puncte insuficiente. Ai nevoie de {cost} puncte pentru a crea această postare.', 'error')
-            return redirect(url_for('create_post'))
-
-    current_user.points -= cost
-
+    """Create a new post with validation and cost calculation."""
     try:
+        data = request.get_json() if request.is_json else request.form
+        validate_post_data(data)
+        
+        post = Post(
+            title=data['title'],
+            description=data.get('description', ''),
+            content=data['content'],
+            post_length=len(data['content']),
+            post_type=data['post_type'],
+            user_id=current_user.id
+        )
+
+        cost = calculate_post_cost(data['post_type'], data['content'])
+        
+        if current_user.points < cost:
+            error_msg = f'Puncte insuficiente. Ai nevoie de {cost} puncte pentru a crea această postare.'
+            return handle_response(error_msg, HTTPStatus.BAD_REQUEST)
+
+        current_user.points -= cost
         db.session.add(post)
         db.session.commit()
-        
-        # Handle different response types based on request type
-        if request.is_json:
-            return jsonify({
-                'message': 'Post created successfully',
-                'post_id': post.id
-            }), HTTPStatus.CREATED
-        else:
-            flash('Postare creată cu succes!', 'success')
-            return redirect(url_for('view_post', post_id=post.id))
+
+        success_msg = 'Postare creată cu succes!'
+        return handle_response(success_msg, HTTPStatus.CREATED, post_id=post.id)
+
+    except ValueError as e:
+        return handle_response(str(e), HTTPStatus.BAD_REQUEST)
     except Exception as e:
         db.session.rollback()
         logging.error(f"Error creating post: {str(e)}")
-        
-        if request.is_json:
-            return jsonify({'error': 'Failed to create post'}), HTTPStatus.INTERNAL_SERVER_ERROR
-        else:
-            flash('A apărut o eroare la crearea postării', 'error')
-            return redirect(url_for('create_post'))
+        return handle_response('A apărut o eroare la crearea postării', HTTPStatus.INTERNAL_SERVER_ERROR)
 
 @posts.route('/posts', methods=['GET'])
 def get_posts():
+    """Get paginated list of posts with filtering."""
     post_type = request.args.get('type')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
     query = Post.query
-    
     if post_type:
         query = query.filter_by(post_type=post_type)
-    
-    posts = query.order_by(Post.created_at.desc()).all()
-    
-    return jsonify([{
+
+    posts = query.order_by(Post.created_at.desc()).paginate(
+        page=page, 
+        per_page=per_page,
+        error_out=False
+    )
+
+    return jsonify({
+        'items': [serialize_post(post) for post in posts.items],
+        'total': posts.total,
+        'pages': posts.pages,
+        'current_page': posts.page
+    })
+
+def serialize_post(post):
+    """Serialize post data for JSON responses."""
+    return {
         'id': post.id,
         'title': post.title,
         'description': post.description,
@@ -103,16 +113,16 @@ def get_posts():
         'created_at': post.created_at.isoformat(),
         'comment_count': len(post.comments),
         'like_count': len(post.likes)
-    } for post in posts])
+    }
 
 @posts.route('/posts/<int:post_id>', methods=['GET'])
 def get_post(post_id):
+    """Get detailed post data with comments."""
     post = Post.query.get_or_404(post_id)
     
     comments_data = []
     for comment in post.comments:
         # Only consider a comment as spam if it has a score of 0
-        # Since we now set a minimum score of 10 for non-spam comments
         is_spam_copied = (True if comment.ai_score == 0 else False)
         logging.info(f"Comment ID: {comment.id}, AI Score: {comment.ai_score}, is_spam_copied: {is_spam_copied}")
         comments_data.append({
@@ -121,6 +131,7 @@ def get_post(post_id):
             'author': comment.author.name,
             'created_at': comment.created_at.isoformat(),
             'ai_score': comment.ai_score,
+            'ai_feedback': comment.ai_feedback,
             'like_count': len(comment.likes),
             'is_spam_copied': is_spam_copied
         })
@@ -137,402 +148,129 @@ def get_post(post_id):
         'comments': comments_data
     })
 
-def evaluate_comment_with_claude(content, post_type):
-    """Evaluate comment using Anthropic Claude API."""
+def evaluate_comment_with_openai(content, post_type, post_content=None, post_title=None):
+    """Evaluate comment using OpenAI model."""
     log_file_path = "ai_evaluation.log"
+    
     try:
-        # Get API key and validate
-        anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not anthropic_api_key:
-            logging.error("ANTHROPIC_API_KEY is not set in the environment variables.")
-            with open(log_file_path, "a", encoding='utf-8') as f:
-                f.write(f"\nERROR: ANTHROPIC_API_KEY is not set in the environment variables.\n")
-            return 0, False
-        
         # Log the API key (masked) for debugging
-        masked_key = anthropic_api_key[:8] + "..." + anthropic_api_key[-4:] if len(anthropic_api_key) > 12 else "***"
+        openai_api_key = os.getenv('OPENAI_API_KEY')
+        masked_key = openai_api_key[:8] + "..." + openai_api_key[-4:] if openai_api_key and len(openai_api_key) > 12 else "***"
         with open(log_file_path, "a", encoding='utf-8') as f:
-            f.write(f"\nUsing API key: {masked_key}\n")
+            f.write(f"\nUsing OpenAI API key: {masked_key}\n")
+            f.write(f"Using OpenAI o3-mini model for evaluation\n")
         
-        # Initialize client
-        try:
-            # Create a clean client with only the API key
-            # Explicitly avoid using any proxy settings
-            client = None
-            
-            # Try different initialization methods
-            try:
-                # Method 1: Direct initialization with minimal parameters
-                client = Anthropic(api_key=anthropic_api_key)
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"Successfully initialized Anthropic client with method 1\n")
-            except Exception as e1:
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"Method 1 failed: {str(e1)}\n")
-                
-                try:
-                    # Method 2: Import directly and initialize
-                    import anthropic
-                    client = anthropic.Anthropic(api_key=anthropic_api_key)
-                    with open(log_file_path, "a", encoding='utf-8') as f:
-                        f.write(f"Successfully initialized Anthropic client with method 2\n")
-                except Exception as e2:
-                    with open(log_file_path, "a", encoding='utf-8') as f:
-                        f.write(f"Method 2 failed: {str(e2)}\n")
-                    
-                    try:
-                        # Method 3: Create a custom client class with basic content evaluation
-                        class CustomAnthropicClient:
-                            def __init__(self, api_key):
-                                self.api_key = api_key
-                                self.messages = self
-                            
-                            def create(self, **kwargs):
-                                # Extract the comment content from kwargs
-                                comment_text = ""
-                                if 'messages' in kwargs:
-                                    for msg in kwargs['messages']:
-                                        if msg.get('role') == 'user' and 'content' in msg:
-                                            user_content = msg['content']
-                                            # Extract comment from "Comment: [content]" format
-                                            if isinstance(user_content, str) and user_content.startswith("Comment:"):
-                                                comment_text = user_content[len("Comment:"):].strip()
-                                
-                                # Log the extracted comment
-                                with open(log_file_path, "a", encoding='utf-8') as f:
-                                    f.write(f"Custom client extracted comment: {comment_text}\n")
-                                
-                                # Basic heuristics for comment evaluation
-                                score = 0
-                                is_spam = False
-                                is_copied = False
-                                
-                                # Check if it's very short or just nonsense
-                                word_count = len(comment_text.split())
-                                
-                                # Log word count
-                                with open(log_file_path, "a", encoding='utf-8') as f:
-                                    f.write(f"Custom client word count: {word_count}\n")
-                                
-                                # Check for spam patterns
-                                spam_patterns = [
-                                    'http://', 'https://', 'www.', '.com', '.net', '.org',  # URLs
-                                    'viagra', 'cialis', 'buy now', 'discount', 'free offer',  # Common spam words
-                                    'casino', 'lottery', 'winner', 'prize', 'money',  # More spam words
-                                    'lol', 'wtf', 'omg', 'rofl', 'lmao'  # Low-value comments
-                                ]
-                                
-                                # Check if comment contains spam patterns
-                                contains_spam = any(pattern in comment_text.lower() for pattern in spam_patterns)
-                                
-                                # Log spam check
-                                with open(log_file_path, "a", encoding='utf-8') as f:
-                                    f.write(f"Custom client spam check: {contains_spam}\n")
-                                
-                                if contains_spam:
-                                    is_spam = True
-                                    score = 0
-                                elif word_count < 3:  # Very short comments
-                                    score = 10
-                                elif word_count < 10:  # Short comments
-                                    score = 20
-                                elif word_count < 30:  # Medium comments
-                                    score = 40
-                                elif word_count < 100:  # Long comments
-                                    score = 60
-                                else:  # Very long comments
-                                    score = 80
-                                
-                                # Check for Romanian literary terms that indicate quality
-                                quality_terms = [
-                                    'poezie', 'poem', 'vers', 'strofa', 'metafora', 'simbol',
-                                    'tema', 'motiv', 'personaj', 'autor', 'opera', 'literatura',
-                                    'eminescu', 'creanga', 'sadoveanu', 'blaga', 'arghezi',
-                                    'frumos', 'emotie', 'sentiment', 'profund', 'impresionant'
-                                ]
-                                
-                                # Count quality terms
-                                quality_term_count = sum(1 for term in quality_terms if term in comment_text.lower())
-                                
-                                # Log quality terms
-                                with open(log_file_path, "a", encoding='utf-8') as f:
-                                    f.write(f"Custom client quality terms: {quality_term_count}\n")
-                                
-                                # Boost score based on quality terms (if not spam)
-                                if not is_spam and quality_term_count > 0:
-                                    score += min(quality_term_count * 5, 20)  # Up to 20 extra points
-                                
-                                # Cap score at 100
-                                score = min(score, 100)
-                                
-                                # Log final evaluation
-                                with open(log_file_path, "a", encoding='utf-8') as f:
-                                    f.write(f"Custom client evaluation - Score: {score}, Spam: {is_spam}, Copied: {is_copied}\n")
-                                
-                                # Create response
-                                response_text = f"Score: {score}\nSpam: {'yes' if is_spam else 'no'}\nCopied: {'yes' if is_copied else 'no'}"
-                                
-                                # Simulate a response with the expected structure
-                                class SimulatedResponse:
-                                    def __init__(self, text):
-                                        self.content = [type('obj', (object,), {'text': text})]
-                                
-                                return SimulatedResponse(response_text)
-                        
-                        client = CustomAnthropicClient(api_key=anthropic_api_key)
-                        with open(log_file_path, "a", encoding='utf-8') as f:
-                            f.write(f"Using fallback custom client implementation\n")
-                    except Exception as e3:
-                        with open(log_file_path, "a", encoding='utf-8') as f:
-                            f.write(f"Method 3 failed: {str(e3)}\n")
-                        raise e3
-            
-            if client is None:
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"ERROR: Failed to initialize Anthropic client with any method\n")
-                return 0, False
-                
-        except Exception as e:
+        # Log the comment
+        with open(log_file_path, "a", encoding='utf-8') as f:
+            f.write(f"Evaluating comment: {content}\n")
+            if post_content:
+                f.write(f"Post content: {post_content[:100]}...\n")
+            if post_title:
+                f.write(f"Post title: {post_title}\n")
+        
+        # Check for spam patterns first (quick check before API call)
+        spam_patterns = [
+            'http://', 'https://', 'www.', '.com', '.net', '.org',  # URLs
+            'viagra', 'cialis', 'buy now', 'discount', 'free offer',  # Common spam words
+            'casino', 'lottery', 'winner', 'prize', 'money',  # More spam words
+        ]
+        
+        # Check if comment contains spam patterns
+        contains_spam = any(pattern in content.lower() for pattern in spam_patterns)
+        
+        # Log spam check
+        with open(log_file_path, "a", encoding='utf-8') as f:
+            f.write(f"Initial spam check: {contains_spam}\n")
+        
+        if contains_spam:
             with open(log_file_path, "a", encoding='utf-8') as f:
-                f.write(f"ERROR initializing Anthropic client: {str(e)}\n")
-            return 0, False
+                f.write(f"Comment flagged as spam, skipping API call\n")
+            return 0, True, "Comment contains spam patterns"
         
-        # Prepare messages
-        system_message = (
-            "You are an AI assistant tasked with evaluating the quality of feedback given on a " +
-            f"{post_type} in Romanian. You understand Romanian language and literature. " +
-            "Score the feedback from 0 to 100 based on the following criteria:\n" +
-            "1. Emotional Resonance & Personal Connection (0-35 points): Evaluate how well the comment expresses a genuine emotional response, shows personal connection, and reflects on human experience.\n" +
-            "2. Thoughtfulness & Depth (0-35 points): Evaluate the careful reading, engagement with themes/imagery, and unique insights in the comment.\n" +
-            "3. Authenticity & Engagement (0-30 points): Evaluate the sincerity, meaningful contributions to literary discussion, and supportive tone.\n\n" +
-            "CRITICAL GUIDELINES FOR SPAM DETECTION:\n" +
-            "- DO NOT mark comments as spam unless they are CLEARLY one of the following:\n" +
-            "  * Completely unrelated to literature or the post (e.g., advertisements)\n" +
-            "  * Random characters or gibberish (e.g., 'asdfghjkl')\n" +
-            "  * Obvious promotional content with external links\n" +
-            "- Romanian comments that mention literary elements, emotions, or specific parts of the work are NEVER spam\n" +
-            "- Comments that mention 'text', 'poetry', 'stanza', 'society', 'emotions', or literary analysis are NEVER spam\n" +
-            "- Comments that express appreciation (e.g., 'mi-a placut mult') are NEVER spam\n" +
-            "- Longer, thoughtful comments in Romanian are NEVER spam\n\n" +
-            "Scoring guidelines:\n" +
-            "- Be more lenient with short comments if they express genuine appreciation or specific observations\n" +
-            "- Only mark as copied if you're absolutely certain the comment is duplicated from elsewhere\n" +
-            "- Score mediocre but genuine comments between 30-60 points\n" +
-            "- Reserve scores above 80 for truly insightful, thoughtful comments with specific references to the work\n" +
-            "- Comments in Romanian that are brief but relevant should receive at least 20-30 points\n" +
-            "- Comments that mention specific elements of the work (e.g., 'a doua strofa') should receive at least 40 points\n\n" +
-            "Your answer must be in exactly the following format (no additional text):\n" +
-            "Score: <number>\n" +
-            "Spam: <yes/no>\n" +
-            "Copied: <yes/no>"
+        # Prepare the prompt for OpenAI
+        system_prompt = """You are an expert literary critic and community moderator for a Romanian literary platform. 
+Your task is to evaluate comments on literary works based on:
+1. Relevance to the original post
+2. Literary insight and value
+3. Constructive feedback
+4. Thoughtfulness and depth
+5. Appropriate tone and language
+
+Rate the comment on a scale of 0-100, where:
+0-20: Spam, irrelevant, or inappropriate
+21-40: Minimal effort, generic, or superficial
+41-60: Adequate but lacks depth or insight
+61-80: Good quality with relevant insights
+81-100: Exceptional literary analysis with depth and originality
+
+Also determine if the comment is spam or copied content (yes/no).
+
+Provide your evaluation in JSON format:
+{
+  "score": [0-100],
+  "is_spam_or_copied": [true/false],
+  "reasoning": "[brief explanation of your evaluation]"
+}"""
+
+        user_prompt = f"Original Post Type: {post_type}\n"
+        if post_title:
+            user_prompt += f"Original Post Title: {post_title}\n"
+        if post_content:
+            user_prompt += f"Original Post Content: {post_content}\n"
+        user_prompt += f"Comment to Evaluate: {content}"
+        
+        # Log the prompts
+        with open(log_file_path, "a", encoding='utf-8') as f:
+            f.write(f"System prompt: {system_prompt}\n")
+            f.write(f"User prompt: {user_prompt}\n")
+        
+        # Initialize OpenAI client
+        client = OpenAI(api_key=openai_api_key)
+        
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="o3-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"}
         )
         
-        user_message = f"Comment: {content}"
-
+        # Extract the response
+        response_content = response.choices[0].message.content
         with open(log_file_path, "a", encoding='utf-8') as f:
-            f.write(f"Using Claude for evaluation\nSystem message length: {len(system_message)} chars\nUser message: {user_message}\n")
-
-        # Make API call
-        try:
-            with open(log_file_path, "a", encoding='utf-8') as f:
-                f.write(f"Calling Claude 3.5 Sonnet API...\n")
-            
-            # Try different model names and parameter formats
-            models_to_try = [
-                "claude-3-5-sonnet-20240620",  # Latest version with date
-                "claude-3-5-sonnet",           # Without date
-                "claude-3-sonnet-20240229",    # Older version
-                "claude-3-sonnet",             # Older version without date
-                "claude-3-opus-20240229",      # Try opus model
-                "claude-3-opus",               # Opus without date
-                "claude-3-haiku-20240307",     # Try haiku model
-                "claude-3-haiku"               # Haiku without date
-            ]
-            
-            success = False
-            last_error = None
-            
-            for model_name in models_to_try:
-                try:
-                    with open(log_file_path, "a", encoding='utf-8') as f:
-                        f.write(f"Trying model: {model_name}\n")
-                    
-                    # First format
-                    try:
-                        message = client.messages.create(
-                            model=model_name,
-                            system=system_message,
-                            messages=[
-                                {"role": "user", "content": user_message}
-                            ],
-                            max_tokens=200,
-                            temperature=0.5
-                        )
-                        success = True
-                        with open(log_file_path, "a", encoding='utf-8') as f:
-                            f.write(f"Successfully called Claude API with model {model_name}\n")
-                        break
-                    except Exception as format1_error:
-                        with open(log_file_path, "a", encoding='utf-8') as f:
-                            f.write(f"First format failed with model {model_name}: {str(format1_error)}\n")
-                        
-                        # Try alternative format
-                        try:
-                            message = client.messages.create(
-                                model=model_name,
-                                max_tokens=200,
-                                temperature=0.5,
-                                messages=[
-                                    {
-                                        "role": "system",
-                                        "content": system_message
-                                    },
-                                    {
-                                        "role": "user",
-                                        "content": user_message
-                                    }
-                                ]
-                            )
-                            success = True
-                            with open(log_file_path, "a", encoding='utf-8') as f:
-                                f.write(f"Successfully called Claude API with model {model_name} using alternative format\n")
-                            break
-                        except Exception as format2_error:
-                            last_error = format2_error
-                            with open(log_file_path, "a", encoding='utf-8') as f:
-                                f.write(f"Second format also failed with model {model_name}: {str(format2_error)}\n")
-                except Exception as model_error:
-                    last_error = model_error
-                    with open(log_file_path, "a", encoding='utf-8') as f:
-                        f.write(f"Error with model {model_name}: {str(model_error)}\n")
-            
-            if not success:
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"All model attempts failed. Last error: {str(last_error)}\n")
-                raise last_error
-            
-            with open(log_file_path, "a", encoding='utf-8') as f:
-                f.write(f"Successfully received response from Claude API\n")
-                f.write(f"Response type: {type(message)}\n")
-                f.write(f"Response content type: {type(message.content) if hasattr(message, 'content') else 'No content attribute'}\n")
-                if hasattr(message, 'content') and message.content:
-                    f.write(f"Content length: {len(message.content)}\n")
-                    f.write(f"First content item type: {type(message.content[0]) if message.content else 'Empty content'}\n")
-                    if message.content and hasattr(message.content[0], 'text'):
-                        f.write(f"Text content: {message.content[0].text}\n")
-            
-            # Extract and parse the response
-            if not hasattr(message, 'content') or not message.content:
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"ERROR: No content in Claude response\n")
-                return 0, False
-            
-            # Log the full message structure for debugging
-            with open(log_file_path, "a", encoding='utf-8') as f:
-                f.write(f"Full message structure: {str(message)}\n")
-                
-            # Handle different response structures
-            evaluation = ""
-            if hasattr(message.content[0], 'text'):
-                evaluation = message.content[0].text
-            elif isinstance(message.content[0], dict) and 'text' in message.content[0]:
-                evaluation = message.content[0]['text']
-            else:
-                # Try to extract text from the response in a different way
-                try:
-                    evaluation = str(message.content[0])
-                except:
-                    with open(log_file_path, "a", encoding='utf-8') as f:
-                        f.write(f"ERROR: Could not extract text from response\n")
-                    return 0, False
-            
-            with open(log_file_path, "a", encoding='utf-8') as f:
-                f.write(f"Claude response content: {evaluation}\n")
-
-            # Extract score using regex - more robust pattern
-            score_match = re.search(r"Score:?\s*(\d+)", evaluation, re.IGNORECASE)
-            if score_match:
-                score = int(score_match.group(1))
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"Extracted score: {score}\n")
-            else:
-                # Try alternative patterns
-                alt_score_match = re.search(r"(\d+)/100", evaluation)
-                if alt_score_match:
-                    score = int(alt_score_match.group(1))
-                    with open(log_file_path, "a", encoding='utf-8') as f:
-                        f.write(f"Extracted score from alternative pattern: {score}\n")
-                else:
-                    # Try to find any number in the response
-                    number_match = re.search(r"\b(\d{1,3})\b", evaluation)
-                    if number_match:
-                        potential_score = int(number_match.group(1))
-                        if 0 <= potential_score <= 100:  # Validate it's a reasonable score
-                            score = potential_score
-                            with open(log_file_path, "a", encoding='utf-8') as f:
-                                f.write(f"Extracted potential score from number in text: {score}\n")
-                        else:
-                            with open(log_file_path, "a", encoding='utf-8') as f:
-                                f.write(f"Found number {potential_score} but it's outside valid score range\n")
-                            score = 0
-                    else:
-                        with open(log_file_path, "a", encoding='utf-8') as f:
-                            f.write(f"ERROR: Could not extract score from response\n")
-                        score = 0
-
-            # Extract spam status using regex - more robust pattern
-            spam_match = re.search(r"Spam:?\s*(yes|no|true|false)", evaluation, re.IGNORECASE)
-            if spam_match:
-                is_spam = spam_match.group(1).lower() in ["yes", "true"]
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"Extracted spam status: {is_spam}\n")
-            else:
-                # Look for spam-related phrases
-                is_spam = "spam: yes" in evaluation.lower() or "is spam" in evaluation.lower()
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"Determined spam status from context: {is_spam}\n")
-
-            # Extract copied status using regex - more robust pattern
-            copied_match = re.search(r"Copied:?\s*(yes|no|true|false)", evaluation, re.IGNORECASE)
-            if copied_match:
-                is_copied = copied_match.group(1).lower() in ["yes", "true"]
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"Extracted copied status: {is_copied}\n")
-            else:
-                # Look for copied-related phrases
-                is_copied = "copied: yes" in evaluation.lower() or "is copied" in evaluation.lower()
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"Determined copied status from context: {is_copied}\n")
-
-            # Return the score and whether it's spam or copied
-            if is_spam or is_copied:
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"Final result: Score 0, is_spam_copied: True\n")
-                return 0, True
-            else:
-                with open(log_file_path, "a", encoding='utf-8') as f:
-                    f.write(f"Final result: Score {score}, is_spam_copied: False\n")
-                return score, False
-
-        except Exception as e:
-            with open(log_file_path, "a", encoding='utf-8') as f:
-                f.write(f"ERROR with Claude API call: {str(e)}\n")
-                import traceback
-                f.write(f"Traceback: {traceback.format_exc()}\n")
-            logging.error(f"Claude API error: {str(e)}")
-            return 0, False
+            f.write(f"OpenAI response: {response_content}\n")
+        
+        # Parse the JSON response
+        evaluation = json.loads(response_content)
+        
+        score = int(evaluation.get("score", 0))
+        is_spam_copied = evaluation.get("is_spam_or_copied", False)
+        reasoning = evaluation.get("reasoning", "No reasoning provided")
+        
+        # Log the evaluation
+        with open(log_file_path, "a", encoding='utf-8') as f:
+            f.write(f"Parsed evaluation - Score: {score}, Is spam/copied: {is_spam_copied}\n")
+            f.write(f"Reasoning: {reasoning}\n")
+        
+        # Return the score, whether it's spam or copied, and the reasoning
+        return score, is_spam_copied, reasoning
 
     except Exception as e:
         with open(log_file_path, "a", encoding='utf-8') as f:
-            f.write(f"ERROR in evaluate_comment_with_claude: {str(e)}\n")
+            f.write(f"ERROR in evaluate_comment_with_openai: {str(e)}\n")
             import traceback
             f.write(f"Traceback: {traceback.format_exc()}\n")
-        logging.error(f"Full Claude API error: {e}")
-        return 0, False
+        logging.error(f"OpenAI evaluation error: {e}")
+        return 0, False, "Error evaluating comment"
 
 def evaluate_comment(content, post_type):
-    """Evaluate comment using Claude API."""
-    return evaluate_comment_with_claude(content, post_type)
+    """Evaluate comment using OpenAI API."""
+    # This is a legacy function that doesn't include post context
+    # It should return three values to match the new signature
+    score, is_spam_copied, reasoning = evaluate_comment_with_openai(content, post_type)
+    return score, is_spam_copied, reasoning
 
 @posts.route('/posts/<int:post_id>/comments', methods=['POST'])
 @login_required
@@ -552,8 +290,13 @@ def add_comment(post_id):
         with open(log_file_path, "a", encoding='utf-8') as f:
             f.write(f"\nNew comment attempt on post {post_id}: {data['content']}\n")
 
-        # Evaluate comment using AI
-        score, is_spam_copied = evaluate_comment(data['content'], post.post_type)
+        # Evaluate comment using AI with post context
+        score, is_spam_copied, reasoning = evaluate_comment_with_openai(
+            content=data['content'], 
+            post_type=post.post_type,
+            post_content=post.content,
+            post_title=post.title
+        )
         
         # Log the score
         with open(log_file_path, "a", encoding='utf-8') as f:
@@ -610,7 +353,8 @@ def add_comment(post_id):
             comment_length=len(data['content']),
             user_id=current_user.id,
             post_id=post_id,
-            ai_score=int(score)
+            ai_score=int(score),
+            ai_feedback=reasoning
         )
         
         # Award points based on AI score and quality thresholds
@@ -692,9 +436,11 @@ def like_post(post_id):
                 post.author.points += Config.POST_LIKE_REWARD    # Award points to post author
                 
             db.session.commit()
+            # Refresh the post object to get the updated likes
+            db.session.refresh(post)
             return jsonify({
                 'message': 'Post like toggled successfully',
-                'like_count': post.like_count
+                'like_count': len(post.likes)
             }), HTTPStatus.OK
         except Exception as e:
             db.session.rollback()
@@ -708,7 +454,7 @@ def like_post(post_id):
             db.session.commit()
             return jsonify({
                 'message': 'Guest like added successfully',
-                'like_count': post.like_count + 1  # Add 1 for the guest like (not stored in DB)
+                'like_count': len(post.likes) + 1  # Add 1 for the guest like (not stored in DB)
             }), HTTPStatus.OK
         except Exception as e:
             db.session.rollback()
@@ -741,6 +487,8 @@ def like_comment(comment_id):
                 comment.author.points += Config.COMMENT_LIKE_REWARD  # Award points to comment author
                 
             db.session.commit()
+            # Refresh the comment object to get the updated likes
+            db.session.refresh(comment)
             return jsonify({
                 'message': 'Comment like toggled successfully',
                 'like_count': len(comment.likes)

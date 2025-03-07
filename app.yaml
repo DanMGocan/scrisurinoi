@@ -1,0 +1,18 @@
+runtime: python310  # Use Python 3.10 runtime
+
+instance_class: F2  # Choose an instance class based on your needs
+
+env_variables:
+  # Don't include actual secrets here, use Secret Manager in production
+  SECRET_KEY: "your-secret-key-here"  # Replace with a secure key in production
+
+entrypoint: gunicorn -b :$PORT app:create_app()  # Use the app factory pattern
+
+handlers:
+- url: /static
+  static_dir: static
+  secure: always
+
+- url: /.*
+  script: auto
+  secure: always

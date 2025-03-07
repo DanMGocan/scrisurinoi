@@ -4,8 +4,11 @@
 
 {% block content %}
 <div class="profile-container">
-    <div class="profile-card">
-        <h2>{{ current_user.name }}'s Profile</h2>
+<div class="profile-card">
+        <div class="profile-header">
+            <img src="{{ current_user.profile_picture }}" alt="{{ current_user.name }}" class="profile-pic profile-pic-large">
+            <h2>{{ current_user.name }}'s Profile</h2>
+        </div>
         <div class="profile-stats">
             <div class="points-badge">
                 {{ current_user.points }} Points
