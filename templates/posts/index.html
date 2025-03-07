@@ -3,9 +3,12 @@
 {% block title %}Acasă - Comunitatea Literară{% endblock %}
 
 {% block content %}
-<div class="posts-container">
-    <div class="posts-header">
+<div class="container">
+    <div class="page-header">
         <h2><i class="fas fa-feather-alt"></i> Opere Literare</h2>
+    </div>
+
+    <div class="categories-container">
         <div class="post-filters">
             <a href="{{ url_for('index') }}" class="btn {% if not request.args.get('type') %}btn-primary{% else %}btn-secondary{% endif %}">
                 <i class="fas fa-layer-group"></i> Toate
@@ -30,6 +33,27 @@
             </a>
         </div>
     </div>
+    <div class="sort-container">
+        <div class="sort-options">
+            <span class="sort-label">Sortează după:</span>
+            <a href="{{ url_for('index', type=request.args.get('type'), sort='recent') }}" class="btn btn-sm {% if request.args.get('sort') == 'recent' or not request.args.get('sort') %}btn-primary{% else %}btn-secondary{% endif %}">
+                <i class="fas fa-clock"></i> Recente
+            </a>
+            <a href="{{ url_for('index', type=request.args.get('type'), sort='likes') }}" class="btn btn-sm {% if request.args.get('sort') == 'likes' %}btn-primary{% else %}btn-secondary{% endif %}">
+                <i class="fas fa-heart"></i> Apreciate
+            </a>
+            <a href="{{ url_for('index', type=request.args.get('type'), sort='comments') }}" class="btn btn-sm {% if request.args.get('sort') == 'comments' %}btn-primary{% else %}btn-secondary{% endif %}">
+                <i class="fas fa-comments"></i> Comentate
+            </a>
+            <a href="{{ url_for('index', type=request.args.get('type'), sort='random') }}" class="btn btn-sm {% if request.args.get('sort') == 'random' %}btn-primary{% else %}btn-secondary{% endif %}">
+                <i class="fas fa-random"></i> Aleatoriu
+            </a>
+        </div>
+    </div>
+
+    <div class="post-layout">
+    <div class="post-main-content">
+        <div class="posts-container">
 
     {% for post in posts %}
     <div class="post-card">
@@ -80,5 +104,166 @@
         </div>
     </div>
     {% endfor %}
+        </div>
+    </div>
+    
+    <div class="post-sidebar">
+        <div class="sticky-sidebar">
+            <!-- How It Works Button -->
+            <button id="how-it-works-btn" class="btn btn-primary btn-block how-it-works-btn">
+                <i class="fas fa-question-circle"></i> Cum funcționează?
+            </button>
+            
+            <!-- Authors List Button -->
+            <a href="{{ url_for('authors_list') }}" class="btn btn-secondary btn-block authors-list-btn">
+                <i class="fas fa-users"></i> Lista autori
+            </a>
+            
+            <!-- Membership Button -->
+            <a href="#" class="btn btn-accent btn-block membership-btn">
+                <i class="fas fa-crown"></i> Devino membru (1,99€ / luna)
+            </a>
+            
+            <!-- Social Links Container -->
+            <div class="sidebar-card">
+                <h3 class="sidebar-title"><i class="fas fa-share-alt"></i> Urmărește-ne</h3>
+                <div class="social-links">
+                    <a href="https://facebook.com/" target="_blank" class="social-link facebook">
+                        <i class="fab fa-facebook-f"></i>
+                    </a>
+                    <a href="https://reddit.com/" target="_blank" class="social-link reddit">
+                        <i class="fab fa-reddit-alien"></i>
+                    </a>
+                    <a href="https://twitter.com/" target="_blank" class="social-link twitter">
+                        <i class="fab fa-twitter"></i>
+                    </a>
+                    <a href="https://instagram.com/" target="_blank" class="social-link instagram">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Links Container -->
+            <div class="sidebar-card">
+                <h3 class="sidebar-title"><i class="fas fa-link"></i> Pagini</h3>
+                <div class="page-links">
+                    <a href="#" class="page-link">
+                        <i class="fas fa-info-circle"></i> Despre noi
+                    </a>
+                    <a href="#" class="page-link">
+                        <i class="fas fa-book"></i> Ghid de scriere
+                    </a>
+                    <a href="#" class="page-link">
+                        <i class="fas fa-question-circle"></i> Întrebări frecvente
+                    </a>
+                    <a href="#" class="page-link">
+                        <i class="fas fa-envelope"></i> Contact
+                    </a>
+                    <a href="#" class="page-link">
+                        <i class="fas fa-shield-alt"></i> Politica de confidențialitate
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Statistics Container -->
+            <div class="sidebar-card">
+                <h3 class="sidebar-title"><i class="fas fa-chart-bar"></i> Statistici</h3>
+                <div class="stats-list">
+                    <div class="stat-item">
+                        <span class="stat-label">Total postări</span>
+                        <span class="stat-value">{{ Post.query.count() }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Poezii</span>
+                        <span class="stat-value">{{ Post.query.filter_by(post_type='poetry').count() }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Proză</span>
+                        <span class="stat-value">{{ Post.query.filter_by(post_type='story').count() }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Eseuri</span>
+                        <span class="stat-value">{{ Post.query.filter_by(post_type='essay').count() }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Teatru</span>
+                        <span class="stat-value">{{ Post.query.filter_by(post_type='theater').count() }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- How It Works Modal -->
+<div id="how-it-works-modal" class="modal modal-info" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <i class="fas fa-info-circle"></i>
+            <span class="modal-title">Cum funcționează Comunitatea Literară?</span>
+            <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <h4><i class="fas fa-feather-alt"></i> Creează și Împărtășește</h4>
+            <p>Scrie poezii, proză, eseuri, piese de teatru, scrisori sau file de jurnal și împărtășește-le cu comunitatea noastră de pasionați de literatură.</p>
+            
+            <h4><i class="fas fa-comments"></i> Primește Feedback</h4>
+            <p>Comentariile sunt evaluate de AI pentru calitate și relevanță. Feedback-ul de calitate este recompensat cu puncte!</p>
+            
+            <h4><i class="fas fa-heart"></i> Apreciază Creațiile</h4>
+            <p>Arată-ți aprecierea pentru creațiile care te impresionează prin apăsarea butonului de apreciere.</p>
+            
+            <h4><i class="fas fa-award"></i> Câștigă Puncte și Recunoaștere</h4>
+            <p>Acumulează puncte prin activitatea ta pe platformă și urcă în clasamentul comunității. Cele mai apreciate creații sunt promovate pe pagina principală.</p>
+            
+            <h4><i class="fas fa-users"></i> Construiește Comunitatea</h4>
+            <p>Suntem o comunitate dedicată literaturii românești. Respectă-i pe ceilalți membri și contribuie la crearea unui mediu constructiv și inspirațional.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const howItWorksBtn = document.getElementById('how-it-works-btn');
+    const howItWorksModal = document.getElementById('how-it-works-modal');
+    const modalClose = howItWorksModal.querySelector('.modal-close');
+    
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    document.body.appendChild(overlay);
+    
+    // Show modal function
+    function showModal() {
+        howItWorksModal.style.display = 'block';
+        overlay.style.display = 'block';
+        
+        // Add show class after a small delay to trigger animation
+        setTimeout(() => {
+            howItWorksModal.classList.add('show');
+            overlay.classList.add('show');
+        }, 10);
+    }
+    
+    // Hide modal function
+    function hideModal() {
+        howItWorksModal.classList.remove('show');
+        overlay.classList.remove('show');
+        
+        // Remove elements after animation completes
+        setTimeout(() => {
+            howItWorksModal.style.display = 'none';
+            overlay.style.display = 'none';
+        }, 400);
+    }
+    
+    // Event listeners
+    howItWorksBtn.addEventListener('click', showModal);
+    modalClose.addEventListener('click', hideModal);
+    overlay.addEventListener('click', hideModal);
+});
+</script>
 {% endblock %}

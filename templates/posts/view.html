@@ -8,135 +8,186 @@
         <i class="fas fa-arrow-left"></i> Înapoi la toate postările
     </a>
     
-    <div class="post-card">
-        <h2 class="post-title">{{ post.title }}</h2>
-        <div class="post-meta">
-            <span><i class="fas fa-user"></i> {{ post.author.name }}</span>
-            <span><i class="far fa-calendar-alt"></i> {{ post.created_at.strftime('%d.%m.%Y') }}</span>
-            <span class="post-type-badge">
-                {% if post.post_type == 'poetry' %}
-                    <i class="fas fa-feather"></i> Poezie
-                {% elif post.post_type == 'story' %}
-                    <i class="fas fa-book"></i> Proză
-                {% elif post.post_type == 'essay' %}
-                    <i class="fas fa-pen-nib"></i> Eseu
-                {% elif post.post_type == 'theater' %}
-                    <i class="fas fa-theater-masks"></i> Teatru
-                {% elif post.post_type == 'letter' %}
-                    <i class="fas fa-envelope-open-text"></i> Scrisoare
-                {% elif post.post_type == 'journal' %}
-                    <i class="fas fa-book-open"></i> Filă de Jurnal
-                {% else %}
-                    {{ post.post_type|title }}
-                {% endif %}
-            </span>
-        </div>
-        
-        {% if post.description %}
-        <div class="post-description">
-            <p><strong>{{ post.description }}</strong></p>
-        </div>
-        {% endif %}
-        
-        <div class="post-content">
-            {% if post.post_type == 'poetry' %}
-                <pre class="poetry-content">{{ post.content }}</pre>
-            {% elif post.post_type == 'theater' %}
-                <pre class="theater-content">{{ post.content }}</pre>
-            {% elif post.post_type == 'letter' %}
-                <div class="letter-content">{{ post.content|nl2br }}</div>
-            {% elif post.post_type == 'journal' %}
-                <div class="journal-content">{{ post.content|nl2br }}</div>
-            {% else %}
-                <div class="prose-content">{{ post.content|nl2br }}</div>
-            {% endif %}
-        </div>
-        
-        <div class="post-actions">
-            <button class="btn btn-like" id="like-post" data-post-id="{{ post.id }}">
-                <i class="fas fa-heart"></i> <span id="post-like-count">{{ post.likes|length }}</span> Aprecieri
-            </button>
-        </div>
-    </div>
-
-    <div class="comment-section">
-        <h3><i class="far fa-comments"></i> Comentarii</h3>
-        
-        {% if current_user.is_authenticated %}
-        <form id="comment-form" class="form" data-post-id="{{ post.id }}">
-            <div class="form-group">
-                <label for="content">Adaugă un comentariu</label>
-                <textarea id="content" name="content" class="form-control" rows="3" required placeholder="Împărtășește-ți gândurile despre această 
-                    {% if post.post_type == 'poetry' %}poezie
-                    {% elif post.post_type == 'story' %}poveste
-                    {% elif post.post_type == 'essay' %}eseu
-                    {% elif post.post_type == 'theater' %}piesă de teatru
-                    {% elif post.post_type == 'letter' %}scrisoare
-                    {% elif post.post_type == 'journal' %}filă de jurnal
-                    {% else %}operă
-                    {% endif %}..."></textarea>
-                <small class="form-text text-muted">
-                    <i class="fas fa-robot"></i> Comentariul tău va fi evaluat de AI pentru calitate și relevanță.
-                    <i class="fas fa-award"></i> Comentariile de calitate îți aduc puncte!
-                </small>
-            </div>
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-paper-plane"></i> Trimite Comentariu
-            </button>
-        </form>
-        {% else %}
-        <div class="login-prompt">
-            <i class="fas fa-lock"></i>
-            Te rugăm să te <a href="{{ url_for('auth.login') }}">autentifici</a> pentru a lăsa un comentariu.
-        </div>
-        {% endif %}
-
-        <div class="comments-list">
-            {% for comment in post.comments|sort(attribute='created_at', reverse=true) %}
-            <div class="comment" id="comment-{{ comment.id }}">
-                <div class="comment-meta">
-                    <span class="comment-author">
-                        <img src="{{ comment.author.profile_picture }}" alt="{{ comment.author.name }}" class="profile-pic">
-                        {{ comment.author.name }}
+    <div class="post-layout">
+        <div class="post-main-content">
+            <div class="post-card">
+                <h2 class="post-title">{{ post.title }}</h2>
+                <div class="post-meta">
+                    <span><i class="far fa-calendar-alt"></i> {{ post.created_at.strftime('%d.%m.%Y') }}</span>
+                    <span class="post-type-badge">
+                        {% if post.post_type == 'poetry' %}
+                            <i class="fas fa-feather"></i> Poezie
+                        {% elif post.post_type == 'story' %}
+                            <i class="fas fa-book"></i> Proză
+                        {% elif post.post_type == 'essay' %}
+                            <i class="fas fa-pen-nib"></i> Eseu
+                        {% elif post.post_type == 'theater' %}
+                            <i class="fas fa-theater-masks"></i> Teatru
+                        {% elif post.post_type == 'letter' %}
+                            <i class="fas fa-envelope-open-text"></i> Scrisoare
+                        {% elif post.post_type == 'journal' %}
+                            <i class="fas fa-book-open"></i> Filă de Jurnal
+                        {% else %}
+                            {{ post.post_type|title }}
+                        {% endif %}
                     </span>
-                    <span class="comment-date"><i class="far fa-clock"></i> {{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
                 </div>
-                <div class="comment-content">
-                    {{ comment.content }}
+                
+                {% if post.description %}
+                <div class="post-description">
+                    <p><strong>{{ post.description }}</strong></p>
                 </div>
-                <div class="comment-actions">
-                    <button class="btn btn-sm btn-like like-comment" data-comment-id="{{ comment.id }}">
-                        <i class="fas fa-heart"></i> <span class="comment-like-count">{{ comment.likes|length }}</span> Aprecieri
-                    </button>
-                    {% if current_user.is_authenticated and comment.author.id == current_user.id %}
-                    <button class="btn btn-sm btn-danger delete-comment" data-comment-id="{{ comment.id }}">
-                        <i class="fas fa-trash"></i> Șterge
-                    </button>
-                    {% endif %}
-                </div>
-                <div class="ai-feedback">
-                {% if comment.ai_score == 0 %}
-                    <div class="warning">
-                        Acest comentariu a fost marcat ca spam sau a fost copiat un comentariu anterior
-                    </div>
-                {% else %}
-                    <div class="score">
-                        Scor de Calitate: {{ "%.1f"|format(comment.ai_score) }}/100
-                    </div>
-                    {% if comment.ai_feedback %}
-                        <div class="feedback">
-                            <i class="fas fa-comment-dots"></i> Feedback AI: {{ comment.ai_feedback }}
-                        </div>
-                    {% endif %}
                 {% endif %}
+                
+                <div class="post-content">
+                    {% if post.post_type == 'poetry' %}
+                        <pre class="poetry-content">{{ post.content }}</pre>
+                    {% elif post.post_type == 'theater' %}
+                        <pre class="theater-content">{{ post.content }}</pre>
+                    {% elif post.post_type == 'letter' %}
+                        <div class="letter-content">{{ post.content|nl2br }}</div>
+                    {% elif post.post_type == 'journal' %}
+                        <div class="journal-content">{{ post.content|nl2br }}</div>
+                    {% else %}
+                        <div class="prose-content">{{ post.content|nl2br }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="post-actions">
+                    <button class="btn btn-like" id="like-post" data-post-id="{{ post.id }}">
+                        <i class="fas fa-heart"></i> <span id="post-like-count">{{ post.likes|length }}</span> Aprecieri
+                    </button>
                 </div>
             </div>
-            {% else %}
-            <div class="no-comments">
-                <i class="far fa-comment-dots fa-3x"></i>
-                <p>Încă nu există comentarii. Fii primul care comentează!</p>
+
+            <div class="comment-section">
+                <h3><i class="far fa-comments"></i> Comentarii</h3>
+                
+                {% if current_user.is_authenticated %}
+                <form id="comment-form" class="form" data-post-id="{{ post.id }}">
+                    <div class="form-group">
+                        <label for="content">Adaugă un comentariu</label>
+                        <textarea id="content" name="content" class="form-control" rows="3" required placeholder="Împărtășește-ți gândurile despre această 
+                            {% if post.post_type == 'poetry' %}poezie
+                            {% elif post.post_type == 'story' %}poveste
+                            {% elif post.post_type == 'essay' %}eseu
+                            {% elif post.post_type == 'theater' %}piesă de teatru
+                            {% elif post.post_type == 'letter' %}scrisoare
+                            {% elif post.post_type == 'journal' %}filă de jurnal
+                            {% else %}operă
+                            {% endif %}..."></textarea>
+                        <small class="form-text text-muted">
+                            <i class="fas fa-robot"></i> Comentariul tău va fi evaluat de AI pentru calitate și relevanță.
+                            <i class="fas fa-award"></i> Comentariile de calitate îți aduc puncte!
+                        </small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Trimite Comentariu
+                    </button>
+                </form>
+                {% else %}
+                <div class="login-prompt">
+                    <i class="fas fa-lock"></i>
+                    Te rugăm să te <a href="{{ url_for('auth.login') }}">autentifici</a> pentru a lăsa un comentariu.
+                </div>
+                {% endif %}
+
+                <div class="comments-list">
+                    {% for comment in post.comments|sort(attribute='created_at', reverse=true) %}
+                    <div class="comment" id="comment-{{ comment.id }}">
+                        <div class="comment-meta">
+                            <span class="comment-author">
+                                <img src="{{ comment.author.profile_picture }}" alt="{{ comment.author.name }}" class="profile-pic">
+                                {{ comment.author.name }}
+                            </span>
+                            <span class="comment-date"><i class="far fa-clock"></i> {{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                        </div>
+                        <div class="comment-content">
+                            {{ comment.content }}
+                        </div>
+                        <div class="comment-actions">
+                            <button class="btn btn-sm btn-like like-comment" data-comment-id="{{ comment.id }}">
+                                <i class="fas fa-heart"></i> <span class="comment-like-count">{{ comment.likes|length }}</span> Aprecieri
+                            </button>
+                            {% if current_user.is_authenticated and comment.author.id == current_user.id %}
+                            <button class="btn btn-sm btn-danger delete-comment" data-comment-id="{{ comment.id }}">
+                                <i class="fas fa-trash"></i> Șterge
+                            </button>
+                            {% endif %}
+                        </div>
+                        <div class="ai-feedback">
+                        {% if comment.ai_score == 0 %}
+                            <div class="warning">
+                                Acest comentariu a fost marcat ca spam sau a fost copiat un comentariu anterior
+                            </div>
+                        {% else %}
+                            <div class="score">
+                                Scor de Calitate: {{ "%.1f"|format(comment.ai_score) }}/100
+                            </div>
+                            {% if comment.ai_feedback %}
+                                <div class="feedback">
+                                    <i class="fas fa-comment-dots"></i> Feedback AI: {{ comment.ai_feedback }}
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="no-comments">
+                        <i class="far fa-comment-dots fa-3x"></i>
+                        <p>Încă nu există comentarii. Fii primul care comentează!</p>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
-            {% endfor %}
+        </div>
+        
+        <div class="post-sidebar">
+            <div class="sticky-sidebar">
+                <div class="author-profile-card">
+                    <div class="author-profile-header">
+                        <img src="{{ post.author.profile_picture }}" alt="{{ post.author.name }}" class="author-profile-pic">
+                        <h3 class="author-name">{{ post.author.name }}</h3>
+                        {% if post.author.bio %}
+                        <p class="author-bio">{{ post.author.bio }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="author-stats">
+                        <div class="author-stat-item">
+                            <span class="author-stat-label"><i class="fas fa-feather-alt"></i> Postări</span>
+                            <span class="author-stat-value">{{ post.author.posts|length }}</span>
+                        </div>
+                        <div class="author-stat-item">
+                            <span class="author-stat-label"><i class="fas fa-comment"></i> Comentarii</span>
+                            <span class="author-stat-value">{{ post.author.comments|length }}</span>
+                        </div>
+                        <div class="author-stat-item">
+                            <span class="author-stat-label"><i class="fas fa-heart"></i> Aprecieri primite</span>
+                            <span class="author-stat-value">{{ post.author.likes_received }}</span>
+                        </div>
+                        <div class="author-stat-item">
+                            <span class="author-stat-label"><i class="fas fa-award"></i> Puncte</span>
+                            <span class="author-stat-value">{{ post.author.points }}</span>
+                        </div>
+                        <div class="author-stat-item">
+                            <span class="author-stat-label"><i class="fas fa-calendar-alt"></i> Membru din</span>
+                            <span class="author-stat-value">{{ post.author.created_at.strftime('%d.%m.%Y') }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="share-buttons">
+                    <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url|urlencode }}" target="_blank" class="share-button share-facebook" title="Distribuie pe Facebook">
+                        <i class="fab fa-facebook-f"></i>
+                    </a>
+                    <a href="mailto:?subject={{ post.title|urlencode }}&body={{ request.url|urlencode }}" class="share-button share-email" title="Trimite prin Email">
+                        <i class="fas fa-envelope"></i>
+                    </a>
+                    <a href="https://wa.me/?text={{ post.title|urlencode }}%20{{ request.url|urlencode }}" target="_blank" class="share-button share-whatsapp" title="Trimite pe WhatsApp">
+                        <i class="fab fa-whatsapp"></i>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </div>

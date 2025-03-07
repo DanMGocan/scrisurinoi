@@ -194,71 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Like functionality for posts
-    const likePostBtn = document.getElementById('like-post');
-    if (likePostBtn) {
-        likePostBtn.addEventListener('click', async function() {
-            const postId = this.getAttribute('data-post-id');
-            try {
-                const response = await fetch(`/api/posts/${postId}/like`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    // Update like count
-                    document.getElementById('post-like-count').textContent = data.like_count;
-                    
-                    // Toggle active class for visual feedback
-                    this.classList.toggle('active');
-                    
-                    showModal('Apreciere adăugată!');
-                } else {
-                    showModal(data.error || 'A apărut o eroare la adăugarea aprecierii', 'error');
-                }
-            } catch (error) {
-                console.error('Error liking post:', error);
-                showModal('A apărut o eroare la adăugarea aprecierii', 'error');
-            }
-        });
-    }
-    
-    // Like functionality for comments
-    const likeCommentBtns = document.querySelectorAll('.like-comment');
-    likeCommentBtns.forEach(button => {
-        button.addEventListener('click', async function() {
-            const commentId = this.getAttribute('data-comment-id');
-            try {
-                const response = await fetch(`/api/comments/${commentId}/like`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    // Update like count
-                    this.querySelector('.comment-like-count').textContent = data.like_count;
-                    
-                    // Toggle active class for visual feedback
-                    this.classList.toggle('active');
-                    
-                    showModal('Apreciere adăugată!');
-                } else {
-                    showModal(data.error || 'A apărut o eroare la adăugarea aprecierii', 'error');
-                }
-            } catch (error) {
-                console.error('Error liking comment:', error);
-                showModal('A apărut o eroare la adăugarea aprecierii', 'error');
-            }
-        });
-    });
+    // Like functionality is now handled in the individual templates
     
     const postForm = document.getElementById('post-form');
     if (postForm) {

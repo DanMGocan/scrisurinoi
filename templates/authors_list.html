@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Lista Autori - Comunitatea Literară{% endblock %}
+
+{% block content %}
+<div class="authors-header">
+    <h2><i class="fas fa-users"></i> Lista Autori</h2>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary back-link">
+        <i class="fas fa-arrow-left"></i> Înapoi la pagina principală
+    </a>
+</div>
+
+<div class="authors-container">
+    <div class="authors-sort">
+        <span class="sort-label">Sortează după:</span>
+        <a href="{{ url_for('authors_list', sort='posts') }}" class="btn btn-sm {% if request.args.get('sort') == 'posts' %}btn-primary{% else %}btn-secondary{% endif %}">
+            <i class="fas fa-feather-alt"></i> Postări
+        </a>
+        <a href="{{ url_for('authors_list', sort='likes') }}" class="btn btn-sm {% if request.args.get('sort') == 'likes' %}btn-primary{% else %}btn-secondary{% endif %}">
+            <i class="fas fa-heart"></i> Aprecieri
+        </a>
+        <a href="{{ url_for('authors_list', sort='date') }}" class="btn btn-sm {% if request.args.get('sort') == 'date' or not request.args.get('sort') %}btn-primary{% else %}btn-secondary{% endif %}">
+            <i class="fas fa-calendar-alt"></i> Data înscrierii
+        </a>
+    </div>
+
+    <div class="authors-list">
+        {% for author in authors %}
+        <div class="author-card">
+            <div class="author-card-header">
+                <img src="{{ author.profile_picture }}" alt="{{ author.name }}" class="author-profile-pic">
+                <div class="author-info">
+                    <h3 class="author-name">{{ author.name }}</h3>
+                    {% if author.bio %}
+                    <p class="author-bio">{{ author.bio }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="author-stats">
+                <div class="author-stat-item">
+                    <span class="author-stat-label"><i class="fas fa-feather-alt"></i> Postări</span>
+                    <span class="author-stat-value">{{ author.posts|length }}</span>
+                </div>
+                <div class="author-stat-item">
+                    <span class="author-stat-label"><i class="fas fa-heart"></i> Aprecieri primite</span>
+                    <span class="author-stat-value">{{ author.likes_received }}</span>
+                </div>
+                <div class="author-stat-item">
+                    <span class="author-stat-label"><i class="fas fa-calendar-alt"></i> Membru din</span>
+                    <span class="author-stat-value">{{ author.created_at.strftime('%d.%m.%Y') }}</span>
+                </div>
+            </div>
+            <a href="{{ url_for('profile', user_id=author.id) }}" class="btn btn-primary btn-block">
+                <i class="fas fa-user"></i> Vezi profil
+            </a>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-users fa-3x"></i>
+            <p>Nu există autori înregistrați.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

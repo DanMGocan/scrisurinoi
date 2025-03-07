@@ -1,7 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_migrate import Migrate
 from flask_login import login_required, current_user
-from models import db, Post
+from models import db, Post, User, Comment, Like
 from auth import auth, login_manager
 from posts import posts
 import os
@@ -53,13 +53,28 @@ def create_app():
     @app.route('/')
     def index():
         post_type = request.args.get('type')
+        sort = request.args.get('sort', 'recent')
+        
         query = Post.query
         
         if post_type:
             query = query.filter_by(post_type=post_type)
         
-        posts = query.order_by(Post.created_at.desc()).all()
-        return render_template('posts/index.html', posts=posts)
+        # Apply sorting
+        if sort == 'recent':
+            query = query.order_by(Post.created_at.desc())
+        elif sort == 'likes':
+            # Order by number of likes (most liked first)
+            query = query.outerjoin(Post.likes).group_by(Post.id).order_by(db.func.count(Like.id).desc())
+        elif sort == 'comments':
+            # Order by number of comments (most commented first)
+            query = query.outerjoin(Post.comments).group_by(Post.id).order_by(db.func.count(Comment.id).desc())
+        elif sort == 'random':
+            # Random order
+            query = query.order_by(db.func.random())
+        
+        posts = query.all()
+        return render_template('posts/index.html', posts=posts, Post=Post)
 
     @app.route('/posts/create')
     @login_required
@@ -77,6 +92,34 @@ def create_app():
     @login_required
     def profile():
         return render_template('profile.html')
+        
+    @app.route('/authors')
+    def authors_list():
+        sort = request.args.get('sort', 'date')
+        
+        query = User.query
+        
+        # Apply sorting
+        if sort == 'date':
+            # Sort by registration date (newest first)
+            query = query.order_by(User.created_at.desc())
+        elif sort == 'posts':
+            # Sort by number of posts (most posts first)
+            query = query.outerjoin(User.posts).group_by(User.id).order_by(db.func.count(Post.id).desc())
+        elif sort == 'likes':
+            # Sort by number of likes received (most likes first)
+            query = query.outerjoin(User.posts).outerjoin(Post.likes).group_by(User.id).order_by(db.func.count(Like.id).desc())
+        
+        authors = query.all()
+        
+        # Calculate likes received for each author
+        for author in authors:
+            likes_received = 0
+            for post in author.posts:
+                likes_received += len(post.likes)
+            author.likes_received = likes_received
+            
+        return render_template('authors_list.html', authors=authors)
 
     @app.errorhandler(404)
     def not_found_error(error):

@@ -23,6 +23,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256))
     name = db.Column(db.String(100), nullable=False)
     profile_picture = db.Column(db.String(200), nullable=True, default='/static/images/default_profile.png')
+    bio = db.Column(db.String(500), nullable=True)
     favorite_quote = db.Column(db.String(500), nullable=True)
     google_id = db.Column(db.String(100), unique=True, nullable=True)
     points = db.Column(db.Integer, default=0)
