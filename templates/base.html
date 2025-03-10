@@ -89,11 +89,6 @@
             // Remove the original flash messages from DOM
             const flashMessages = document.querySelectorAll('.alert');
             flashMessages.forEach(message => message.remove());
-            
-            // Show LinkedIn/CV notice modal on landing page
-            {% if request.path == '/' %}
-                showModal('If you are here from my LinkedIn or my CV, please note this project is still work in progress. "Scrisuri Noi" is a community for Romanian literature writers that encourages feedback and interaction and is a place for people to both teach and learn about their writing. Built with Flask.', 'info');
-            {% endif %}
         });
     </script>
     {% block scripts %}{% endblock %}
